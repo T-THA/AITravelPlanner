@@ -1,6 +1,6 @@
 import React from 'react';
-import { Button, Card, Typography, Space, message } from 'antd';
-import { LogoutOutlined, UserOutlined } from '@ant-design/icons';
+import { Button, Card, Typography, Space, message, Divider } from 'antd';
+import { LogoutOutlined, UserOutlined, AudioOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { authService } from '../services/auth';
@@ -51,7 +51,24 @@ const Dashboard: React.FC = () => {
           </Card>
 
           <Card type="inner" title="欢迎使用 AI 旅行规划师！">
-            <Text>您已成功登录系统。后续功能正在开发中...</Text>
+            <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+              <Text>您已成功登录系统。</Text>
+              
+              <Divider />
+              
+              <div>
+                <Text strong>功能测试：</Text>
+                <div style={{ marginTop: '16px' }}>
+                  <Button
+                    type="primary"
+                    icon={<AudioOutlined />}
+                    onClick={() => navigate('/voice-test')}
+                  >
+                    测试语音识别
+                  </Button>
+                </div>
+              </div>
+            </Space>
           </Card>
         </Space>
       </Card>
