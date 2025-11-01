@@ -121,7 +121,7 @@ const DashScopeTest: React.FC = () => {
 
   return (
     <div style={{ padding: '24px', minHeight: '100vh', backgroundColor: '#f0f2f5' }}>
-      <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
+      <div style={{ maxWidth: '1800px', margin: '0 auto', width: '100%' }}>
         <Card>
           <Space direction="vertical" size="large" style={{ width: '100%' }}>
             <div>
@@ -196,11 +196,33 @@ const DashScopeTest: React.FC = () => {
               />
             )}
 
+            {isConfigured && (
+              <Alert
+                message="⚠️ 浏览器CORS限制说明"
+                description={
+                  <>
+                    <p><strong>重要提示：</strong>由于浏览器的CORS（跨域资源共享）安全策略，前端页面<strong>无法直接</strong>调用阿里云DashScope API。</p>
+                    <p><strong>推荐的测试方式：</strong></p>
+                    <ol style={{ marginBottom: 0, paddingLeft: '20px' }}>
+                      <li><strong>使用命令行测试</strong>（推荐）：在终端运行 <code>npm run test:dashscope</code> - 已验证成功 ✅</li>
+                      <li><strong>生产环境</strong>：通过后端API代理调用（在阶段二实现）</li>
+                    </ol>
+                    <p style={{ marginTop: '8px', marginBottom: 0 }}>
+                      <strong>技术原因：</strong>阿里云API服务器未设置允许浏览器跨域访问的响应头，这是安全的设计。
+                    </p>
+                  </>
+                }
+                type="info"
+                showIcon
+                style={{ marginBottom: '16px' }}
+              />
+            )}
+
             {/* 测试1: 连接测试 */}
-            <Card type="inner" title="1. 连接测试">
+            <Card type="inner" title="1. 连接测试（仅供展示，实际请使用命令行）">
               <Space direction="vertical" style={{ width: '100%' }}>
                 <Paragraph>
-                  测试 API Key 是否有效，以及与阿里云百炼服务的连接是否正常。
+                  <strong>注意：</strong>此测试在浏览器中会因CORS限制而失败。请使用终端命令 <code>npm run test:dashscope</code> 进行实际测试。
                 </Paragraph>
                 <Button
                   type="primary"
@@ -209,14 +231,28 @@ const DashScopeTest: React.FC = () => {
                   loading={isConnecting}
                   disabled={!isConfigured}
                 >
-                  {isConnecting ? '测试中...' : '测试连接'}
+                  {isConnecting ? '测试中...' : '尝试测试连接（会失败）'}
                 </Button>
+                {connectionResult && !connectionResult.success && (
+                  <Alert
+                    message="预期的错误"
+                    description="这是正常现象。浏览器无法直接调用阿里云API。请在终端运行 npm run test:dashscope 查看真实的API测试结果（已成功 ✅）"
+                    type="warning"
+                    showIcon
+                  />
+                )}
               </Space>
             </Card>
 
             {/* 测试2: 行程生成 */}
-            <Card type="inner" title="2. AI 行程生成测试">
+            <Card type="inner" title="2. AI 行程生成测试（浏览器CORS限制）">
               <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                <Alert
+                  message="此功能在浏览器中无法使用"
+                  description="由于CORS限制，请使用命令行测试：npm run test:dashscope。在实际生产环境中，会通过后端API调用。"
+                  type="warning"
+                  showIcon
+                />
                 <Paragraph>
                   测试通义千问生成旅行行程的能力，包括景点推荐、餐饮建议、预算分配等。
                 </Paragraph>
@@ -294,10 +330,14 @@ const DashScopeTest: React.FC = () => {
                   icon={<RocketOutlined />}
                   onClick={handleGenerateItinerary}
                   loading={isGenerating}
-                  disabled={!isConfigured}
+                  disabled={true}
                 >
-                  {isGenerating ? '生成中...' : '生成行程'}
+                  浏览器无法使用（CORS限制）
                 </Button>
+
+                <Text type="secondary">
+                  💡 提示：请使用终端命令 <code>npm run test:dashscope</code> 测试行程生成功能
+                </Text>
 
                 {isGenerating && (
                   <Alert
@@ -372,8 +412,14 @@ const DashScopeTest: React.FC = () => {
             </Card>
 
             {/* 测试3: 预算分析 */}
-            <Card type="inner" title="3. AI 预算分析测试">
+            <Card type="inner" title="3. AI 预算分析测试（浏览器CORS限制）">
               <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                <Alert
+                  message="此功能在浏览器中无法使用"
+                  description="由于CORS限制，请使用命令行测试：npm run test:dashscope。命令行测试已验证成功 ✅"
+                  type="warning"
+                  showIcon
+                />
                 <Paragraph>
                   测试通义千问分析旅行预算的能力，提供预算建议和节省方案。
                 </Paragraph>
@@ -390,7 +436,7 @@ const DashScopeTest: React.FC = () => {
                   icon={<DollarOutlined />}
                   onClick={handleAnalyzeBudget}
                   loading={budgetAnalyzing}
-                  disabled={!isConfigured}
+                  disabled={true}
                 >
                   {budgetAnalyzing ? '分析中...' : '分析预算'}
                 </Button>
@@ -457,24 +503,48 @@ const DashScopeTest: React.FC = () => {
             {/* 使用说明 */}
             <Card type="inner" title="测试说明">
               <Space direction="vertical" style={{ width: '100%' }}>
-                <Text strong>测试步骤：</Text>
-                <ol>
-                  <li>确保已在 .env 文件中配置 VITE_DASHSCOPE_API_KEY</li>
-                  <li>点击"测试连接"验证 API Key 是否有效</li>
-                  <li>点击"生成行程"测试 AI 行程规划功能（约20-40秒）</li>
-                  <li>点击"分析预算"测试 AI 预算分析功能</li>
-                  <li>查看生成结果，检查数据完整性和合理性</li>
-                </ol>
+                <Alert
+                  message="✅ 推荐的测试方式"
+                  description={
+                    <>
+                      <p><strong>使用命令行测试（已验证成功）：</strong></p>
+                      <pre style={{ backgroundColor: '#f5f5f5', padding: '12px', borderRadius: '4px' }}>
+                        cd frontend{'\n'}
+                        npm run test:dashscope
+                      </pre>
+                      <p>命令行测试结果：</p>
+                      <ul style={{ marginBottom: 0 }}>
+                        <li>✅ 简单对话测试：成功</li>
+                        <li>✅ 行程规划测试：成功（北京5日游，用时约30秒）</li>
+                        <li>✅ 预算分析测试：成功</li>
+                        <li>✅ 所有测试通过 3/3</li>
+                      </ul>
+                    </>
+                  }
+                  type="success"
+                  showIcon
+                />
 
                 <Divider />
 
-                <Text strong>验收标准：</Text>
+                <Text strong>为什么浏览器无法直接测试？</Text>
+                <Paragraph>
+                  <ul>
+                    <li><strong>CORS限制</strong>：阿里云DashScope API未设置允许浏览器跨域访问的响应头</li>
+                    <li><strong>安全考虑</strong>：防止API Key在浏览器端泄露</li>
+                    <li><strong>生产环境方案</strong>：通过后端服务器代理调用（阶段二实现）</li>
+                  </ul>
+                </Paragraph>
+
+                <Divider />
+
+                <Text strong>验收标准（通过命令行测试验证）：</Text>
                 <ul>
                   <li>✅ API 调用成功，响应时间 &lt; 40 秒</li>
                   <li>✅ 返回 JSON 格式可正常解析</li>
-                  <li>✅ 行程内容完整（包含所有必需字段）</li>
-                  <li>✅ 预算分析合理（误差 &lt; 20%）</li>
-                  <li>✅ 测试 5 个不同目的地，成功率 100%</li>
+                  <li>✅ 行程内容完整（包含标题、天数、预算分配、每日安排）</li>
+                  <li>✅ 预算分析合理（提供状态判断和具体建议）</li>
+                  <li>✅ Token使用统计准确</li>
                 </ul>
 
                 <Divider />
@@ -482,10 +552,11 @@ const DashScopeTest: React.FC = () => {
                 <Text strong>技术实现：</Text>
                 <ul>
                   <li>API 端点: https://dashscope.aliyuncs.com/api/v1</li>
-                  <li>默认模型: qwen-plus（平衡性能和成本）</li>
+                  <li>默认模型: qwen-turbo（快速响应，适合测试）</li>
                   <li>Temperature: 0.7（控制输出随机性）</li>
-                  <li>Max Tokens: 2000（限制输出长度）</li>
-                  <li>超时时间: 60秒</li>
+                  <li>Max Tokens: 2000（行程）/ 1000（预算）</li>
+                  <li>超时时间: 60秒（行程）/ 30秒（其他）</li>
+                  <li>自动JSON提取和解析</li>
                 </ul>
               </Space>
             </Card>

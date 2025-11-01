@@ -65,11 +65,16 @@ export class DashScopeService {
   constructor(
     apiKey?: string,
     baseURL = 'https://dashscope.aliyuncs.com/api/v1',
-    defaultModel: QwenModelType = QwenModel.PLUS
+    defaultModel: QwenModelType = QwenModel.TURBO // 使用 turbo 模型
   ) {
-    this.apiKey = apiKey || import.meta.env.VITE_DASHSCOPE_API_KEY || '';
+    // 兼容两种环境变量名称
+    this.apiKey = apiKey || 
+                  import.meta.env.VITE_DASHSCOPE_API_KEY || 
+                  import.meta.env.VITE_ALIYUN_API_KEY || 
+                  '';
     this.baseURL = baseURL;
-    this.defaultModel = defaultModel;
+    // 优先使用配置的模型名称
+    this.defaultModel = (import.meta.env.VITE_ALIYUN_MODEL_NAME as QwenModelType) || defaultModel;
 
     if (!this.apiKey) {
       console.warn('⚠️ DashScope API Key 未配置');
@@ -125,7 +130,7 @@ export class DashScopeService {
       if (error.response) {
         // API 返回错误
         const status = error.response.status;
-        const message = error.response.data?.message || '未知错误';
+        const message = error.response.data?.message || error.response.data?.error?.message || '未知错误';
         
         if (status === 401) {
           throw new Error('API Key 无效或已过期');
@@ -137,10 +142,14 @@ export class DashScopeService {
           throw new Error(`API 错误 (${status}): ${message}`);
         }
       } else if (error.request) {
-        // 网络错误
-        throw new Error('网络连接失败，请检查网络设置');
+        // 网络错误 - 可能是CORS问题
+        console.error('请求详情:', error.request);
+        if (error.message.includes('Network Error') || error.code === 'ERR_NETWORK') {
+          throw new Error('网络连接失败。可能原因：1) 阿里云API存在CORS限制，浏览器无法直接调用 2) 网络连接问题 3) API端点不可达。建议：使用后端代理或在服务器端调用API');
+        }
+        throw new Error(`网络请求失败: ${error.message}`);
       } else {
-        throw new Error('请求配置错误');
+        throw new Error(`请求配置错误: ${error.message}`);
       }
     }
   }

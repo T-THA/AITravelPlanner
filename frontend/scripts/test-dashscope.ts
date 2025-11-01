@@ -8,9 +8,10 @@ import axios from 'axios';
 // 加载环境变量
 config({ path: '.env' });
 
-const API_KEY = process.env.VITE_DASHSCOPE_API_KEY;
+const API_KEY = process.env.VITE_ALIYUN_API_KEY;
+// 使用标准DashScope API端点，不使用兼容模式
 const BASE_URL = 'https://dashscope.aliyuncs.com/api/v1';
-const MODEL = 'qwen-plus';
+const MODEL = process.env.VITE_ALIYUN_MODEL_NAME || 'qwen-turbo';
 
 // 颜色输出
 const colors = {
