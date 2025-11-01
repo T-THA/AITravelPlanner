@@ -196,7 +196,7 @@ const MapTest: React.FC = () => {
 
   return (
     <div style={{ padding: '24px', minHeight: '100vh', backgroundColor: '#f0f2f5' }}>
-      <div style={{ maxWidth: '1800px', margin: '0 auto' }}>
+      <div style={{ maxWidth: '95%', width: '100%', margin: '0 auto' }}>
         <Card>
           <Space direction="vertical" size="large" style={{ width: '100%' }}>
             <div>
