@@ -195,17 +195,18 @@ const MapTest: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: '50px', maxWidth: '1600px', margin: '0 auto' }}>
-      <Card>
-        <Space direction="vertical" size="large" style={{ width: '100%' }}>
-          <div>
-            <Title level={2}>
-              <EnvironmentOutlined /> 高德地图 API 测试
-            </Title>
-            <Text type="secondary">Task 1.4: 测试高德地图显示、POI 搜索和路径规划功能</Text>
-          </div>
+    <div style={{ padding: '24px', minHeight: '100vh', backgroundColor: '#f0f2f5' }}>
+      <div style={{ maxWidth: '1800px', margin: '0 auto' }}>
+        <Card>
+          <Space direction="vertical" size="large" style={{ width: '100%' }}>
+            <div>
+              <Title level={2}>
+                <EnvironmentOutlined /> 高德地图 API 测试
+              </Title>
+              <Text type="secondary">Task 1.4: 测试高德地图显示、POI 搜索和路径规划功能</Text>
+            </div>
 
-          <Divider />
+            <Divider />
 
           {/* 环境检查 */}
           <Card type="inner" title="环境检查">
@@ -260,9 +261,9 @@ const MapTest: React.FC = () => {
             </Space>
           </Card>
 
-          <Row gutter={16}>
+          <Row gutter={24}>
             {/* 左侧：搜索和控制 */}
-            <Col xs={24} lg={8}>
+            <Col xs={24} md={24} lg={10} xl={8}>
               <Space direction="vertical" size="middle" style={{ width: '100%' }}>
                 {/* POI 搜索 */}
                 <Card type="inner" title="POI 搜索">
@@ -376,7 +377,7 @@ const MapTest: React.FC = () => {
             </Col>
 
             {/* 右侧：地图 */}
-            <Col xs={24} lg={16}>
+            <Col xs={24} md={24} lg={14} xl={16}>
               <Card
                 type="inner"
                 title="地图显示"
@@ -387,13 +388,15 @@ const MapTest: React.FC = () => {
                   id="map-container"
                   style={{
                     width: '100%',
-                    height: '600px',
+                    height: '700px',
                     backgroundColor: '#f0f0f0',
                   }}
                 />
               </Card>
             </Col>
           </Row>
+
+          <Divider />
 
           {/* 使用说明 */}
           <Card type="inner" title="测试说明">
@@ -422,7 +425,8 @@ const MapTest: React.FC = () => {
             </Space>
           </Card>
         </Space>
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 };

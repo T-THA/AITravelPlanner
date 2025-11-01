@@ -25,20 +25,21 @@ const Dashboard: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: '50px', maxWidth: '1200px', margin: '0 auto' }}>
-      <Card>
-        <Space direction="vertical" size="large" style={{ width: '100%' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Title level={2}>控制面板</Title>
-            <Button 
-              type="primary" 
-              danger 
-              icon={<LogoutOutlined />}
-              onClick={handleLogout}
-            >
-              退出登录
-            </Button>
-          </div>
+    <div style={{ padding: '24px', minHeight: '100vh', backgroundColor: '#f0f2f5' }}>
+      <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
+        <Card>
+          <Space direction="vertical" size="large" style={{ width: '100%' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Title level={2}>控制面板</Title>
+              <Button 
+                type="primary" 
+                danger 
+                icon={<LogoutOutlined />}
+                onClick={handleLogout}
+              >
+                退出登录
+              </Button>
+            </div>
           
           <Card type="inner" title={<><UserOutlined /> 用户信息</>}>
             <Space direction="vertical">
@@ -80,7 +81,8 @@ const Dashboard: React.FC = () => {
             </Space>
           </Card>
         </Space>
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 };

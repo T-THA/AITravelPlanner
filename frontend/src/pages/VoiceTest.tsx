@@ -131,17 +131,18 @@ const VoiceTest: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: '50px', maxWidth: '1200px', margin: '0 auto' }}>
-      <Card>
-        <Space direction="vertical" size="large" style={{ width: '100%' }}>
-          <div>
-            <Title level={2}>
-              <ApiOutlined /> 科大讯飞语音识别测试
-            </Title>
-            <Text type="secondary">Task 1.3: 测试科大讯飞 WebSocket 实时语音识别 API</Text>
-          </div>
+    <div style={{ padding: '24px', minHeight: '100vh', backgroundColor: '#f0f2f5' }}>
+      <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
+        <Card>
+          <Space direction="vertical" size="large" style={{ width: '100%' }}>
+            <div>
+              <Title level={2}>
+                <ApiOutlined /> 科大讯飞语音识别测试
+              </Title>
+              <Text type="secondary">Task 1.3: 测试科大讯飞 WebSocket 实时语音识别 API</Text>
+            </div>
 
-          <Divider />
+            <Divider />
 
           {/* 环境检查 */}
           <Card type="inner" title="环境检查">
@@ -306,7 +307,8 @@ const VoiceTest: React.FC = () => {
             </Paragraph>
           </Card>
         </Space>
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 };
