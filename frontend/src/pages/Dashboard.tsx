@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button, Card, Typography, Space, message, Divider } from 'antd';
-import { LogoutOutlined, UserOutlined, AudioOutlined } from '@ant-design/icons';
+import { LogoutOutlined, UserOutlined, AudioOutlined, EnvironmentOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { authService } from '../services/auth';
@@ -59,13 +59,22 @@ const Dashboard: React.FC = () => {
               <div>
                 <Text strong>功能测试：</Text>
                 <div style={{ marginTop: '16px' }}>
-                  <Button
-                    type="primary"
-                    icon={<AudioOutlined />}
-                    onClick={() => navigate('/voice-test')}
-                  >
-                    测试语音识别
-                  </Button>
+                  <Space wrap>
+                    <Button
+                      type="primary"
+                      icon={<AudioOutlined />}
+                      onClick={() => navigate('/voice-test')}
+                    >
+                      测试语音识别
+                    </Button>
+                    <Button
+                      type="primary"
+                      icon={<EnvironmentOutlined />}
+                      onClick={() => navigate('/map-test')}
+                    >
+                      测试高德地图
+                    </Button>
+                  </Space>
                 </div>
               </div>
             </Space>

@@ -13,7 +13,8 @@
     "preview": "vite preview",
     "type-check": "tsc --noEmit",
     "test:supabase": "tsx scripts/test-supabase.ts",
-    "test:iflytek": "tsx scripts/test-iflytek.ts"
+    "test:iflytek": "tsx scripts/test-iflytek.ts",
+    "test:amap": "tsx scripts/test-amap.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.78.0",

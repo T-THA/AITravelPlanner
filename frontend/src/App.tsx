@@ -10,6 +10,7 @@ const LoginPage = React.lazy(() => import('./pages/Login'));
 const RegisterPage = React.lazy(() => import('./pages/Register'));
 const DashboardPage = React.lazy(() => import('./pages/Dashboard'));
 const VoiceTestPage = React.lazy(() => import('./pages/VoiceTest'));
+const MapTestPage = React.lazy(() => import('./pages/MapTest'));
 
 // 受保护的路由组件
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -73,6 +74,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <VoiceTestPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/map-test"
+              element={
+                <ProtectedRoute>
+                  <MapTestPage />
                 </ProtectedRoute>
               }
             />
