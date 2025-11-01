@@ -11,6 +11,7 @@ const RegisterPage = React.lazy(() => import('./pages/Register'));
 const DashboardPage = React.lazy(() => import('./pages/Dashboard'));
 const VoiceTestPage = React.lazy(() => import('./pages/VoiceTest'));
 const MapTestPage = React.lazy(() => import('./pages/MapTest'));
+const DashScopeTestPage = React.lazy(() => import('./pages/DashScopeTest'));
 
 // 受保护的路由组件
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -82,6 +83,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <MapTestPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashscope-test"
+              element={
+                <ProtectedRoute>
+                  <DashScopeTestPage />
                 </ProtectedRoute>
               }
             />

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button, Card, Typography, Space, message, Divider } from 'antd';
-import { LogoutOutlined, UserOutlined, AudioOutlined, EnvironmentOutlined } from '@ant-design/icons';
+import { LogoutOutlined, UserOutlined, AudioOutlined, EnvironmentOutlined, ApiOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { authService } from '../services/auth';
@@ -74,6 +74,13 @@ const Dashboard: React.FC = () => {
                       onClick={() => navigate('/map-test')}
                     >
                       测试高德地图
+                    </Button>
+                    <Button
+                      type="primary"
+                      icon={<ApiOutlined />}
+                      onClick={() => navigate('/dashscope-test')}
+                    >
+                      测试AI模型
                     </Button>
                   </Space>
                 </div>
