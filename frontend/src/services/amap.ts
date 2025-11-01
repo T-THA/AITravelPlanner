@@ -54,18 +54,19 @@ class AmapService {
   private map: any = null;
   private isLoaded = false;
   private loadPromise: Promise<void> | null = null;
-  private apiKey: string;
-  private securityCode: string;
+  private jsApiKey: string;
+  private jsApiSecret: string;
 
   constructor() {
-    this.apiKey = import.meta.env.VITE_AMAP_KEY;
-    this.securityCode = import.meta.env.VITE_AMAP_SECRET;
+    // JS API 用于浏览器端地图显示
+    this.jsApiKey = import.meta.env.VITE_AMAP_JS_KEY;
+    this.jsApiSecret = import.meta.env.VITE_AMAP_JS_SECRET;
 
-    if (!this.apiKey || !this.securityCode) {
+    if (!this.jsApiKey || !this.jsApiSecret) {
       console.warn(
-        '⚠️  高德地图 API 配置不完整，请在 .env 文件中配置:\n' +
-          '   VITE_AMAP_KEY\n' +
-          '   VITE_AMAP_SECRET'
+        '⚠️  高德地图 JS API 配置不完整，请在 .env 文件中配置:\n' +
+          '   VITE_AMAP_JS_KEY\n' +
+          '   VITE_AMAP_JS_SECRET'
       );
     }
   }
@@ -80,13 +81,13 @@ class AmapService {
     this.loadPromise = new Promise((resolve, reject) => {
       // 设置安全密钥
       window._AMapSecurityConfig = {
-        securityJsCode: this.securityCode,
+        securityJsCode: this.jsApiSecret,
       };
 
       // 创建 script 标签
       const script = document.createElement('script');
       script.type = 'text/javascript';
-      script.src = `https://webapi.amap.com/maps?v=2.0&key=${this.apiKey}&plugin=AMap.PlaceSearch,AMap.Driving,AMap.Geocoder`;
+      script.src = `https://webapi.amap.com/maps?v=2.0&key=${this.jsApiKey}&plugin=AMap.PlaceSearch,AMap.Driving,AMap.Geocoder`;
       script.async = true;
 
       script.onload = () => {

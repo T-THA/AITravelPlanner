@@ -7,6 +7,7 @@ import * as dotenv from 'dotenv';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import axios from 'axios';
+import CryptoJS from 'crypto-js';
 
 // ES 模块中获取 __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -15,11 +16,38 @@ const __dirname = path.dirname(__filename);
 // 加载环境变量
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
-// API 配置
+// API 配置 - 使用 Web 服务 API
 const config = {
   key: process.env.VITE_AMAP_KEY || '',
   secret: process.env.VITE_AMAP_SECRET || '',
+  jsKey: process.env.VITE_AMAP_JS_KEY || '',
+  jsSecret: process.env.VITE_AMAP_JS_SECRET || '',
 };
+
+/**
+ * 生成请求签名
+ * @param params 请求参数
+ * @param secret 私钥
+ */
+function generateSignature(params: Record<string, string>, secret: string): string {
+  // 1. 按参数名排序
+  const sortedKeys = Object.keys(params).sort();
+  
+  // 2. 拼接参数
+  let paramStr = '';
+  sortedKeys.forEach((key) => {
+    paramStr += key + '=' + params[key] + '&';
+  });
+  paramStr = paramStr.slice(0, -1); // 移除最后的 &
+  
+  // 3. 拼接私钥
+  const signStr = paramStr + secret;
+  
+  // 4. MD5 加密
+  const signature = CryptoJS.MD5(signStr).toString();
+  
+  return signature;
+}
 
 /**
  * 测试 Web 服务 API（POI 搜索）
@@ -28,12 +56,20 @@ async function testPOISearch(): Promise<boolean> {
   console.log('🔄 正在测试 POI 搜索...');
 
   try {
+    const params: Record<string, string> = {
+      key: config.key,
+      keywords: '故宫',
+      city: '北京',
+      output: 'json',
+    };
+    
+    // 生成签名
+    const sig = generateSignature(params, config.secret);
+
     const response = await axios.get('https://restapi.amap.com/v3/place/text', {
       params: {
-        key: config.key,
-        keywords: '故宫',
-        city: '北京',
-        output: 'json',
+        ...params,
+        sig,
       },
     });
 
@@ -66,11 +102,19 @@ async function testGeocode(): Promise<boolean> {
   console.log('\n🔄 正在测试地理编码...');
 
   try {
+    const params: Record<string, string> = {
+      key: config.key,
+      address: '北京市朝阳区阜通东大街6号',
+      output: 'json',
+    };
+    
+    // 生成签名
+    const sig = generateSignature(params, config.secret);
+
     const response = await axios.get('https://restapi.amap.com/v3/geocode/geo', {
       params: {
-        key: config.key,
-        address: '北京市朝阳区阜通东大街6号',
-        output: 'json',
+        ...params,
+        sig,
       },
     });
 
@@ -100,12 +144,20 @@ async function testDriving(): Promise<boolean> {
   console.log('\n🔄 正在测试路径规划...');
 
   try {
+    const params: Record<string, string> = {
+      key: config.key,
+      origin: '116.397428,39.90923',
+      destination: '116.2317,39.9065',
+      output: 'json',
+    };
+    
+    // 生成签名
+    const sig = generateSignature(params, config.secret);
+
     const response = await axios.get('https://restapi.amap.com/v3/direction/driving', {
       params: {
-        key: config.key,
-        origin: '116.397428,39.90923', // 天安门
-        destination: '116.2317,39.9065', // 颐和园
-        output: 'json',
+        ...params,
+        sig,
       },
     });
 
@@ -137,15 +189,22 @@ async function main() {
 
   // 1. 检查配置
   console.log('📋 配置检查:');
-  console.log(`   API Key: ${config.key ? '✅ 已配置' : '❌ 未配置'}`);
-  console.log(`   API Secret: ${config.secret ? '✅ 已配置' : '❌ 未配置'}`);
+  console.log(`   Web 服务 API Key: ${config.key ? '✅ 已配置' : '❌ 未配置'}`);
+  console.log(`   Web 服务 API Secret: ${config.secret ? '✅ 已配置' : '❌ 未配置'}`);
+  console.log(`   JS API Key: ${config.jsKey ? '✅ 已配置' : '❌ 未配置'}`);
+  console.log(`   JS API Secret: ${config.jsSecret ? '✅ 已配置' : '❌ 未配置'}`);
   console.log();
 
   if (!config.key) {
-    console.error('❌ 测试失败：API Key 未配置！');
+    console.error('❌ 测试失败：Web 服务 API Key 未配置！');
     console.log('\n请在 frontend/.env 文件中配置以下环境变量：');
-    console.log('   VITE_AMAP_KEY=你的API_KEY');
-    console.log('   VITE_AMAP_SECRET=你的安全密钥\n');
+    console.log('   VITE_AMAP_KEY=你的Web服务API_KEY');
+    console.log('   VITE_AMAP_SECRET=你的安全密钥');
+    console.log('   VITE_AMAP_JS_KEY=你的JS_API_KEY');
+    console.log('   VITE_AMAP_JS_SECRET=你的JS安全密钥\n');
+    console.log('💡 说明：');
+    console.log('   - VITE_AMAP_KEY: 用于服务端 REST API 调用（本测试脚本）');
+    console.log('   - VITE_AMAP_JS_KEY: 用于浏览器端地图显示（网页应用）\n');
     process.exit(1);
   }
 

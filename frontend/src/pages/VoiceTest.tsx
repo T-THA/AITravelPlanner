@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   Card,
   Button,
@@ -44,9 +44,6 @@ const VoiceTest: React.FC = () => {
   const [records, setRecords] = useState<RecognitionRecord[]>([]);
   const [currentText, setCurrentText] = useState('');
   const [errorInfo, setErrorInfo] = useState<RecognitionError | null>(null);
-  
-  // 使用 ref 存储累积文本，避免闭包问题
-  const accumulatedTextRef = useRef('');
 
   // 检查浏览器支持 - 使用静态方法
   const isSupported = IFlyTekASRService.isSupported();
@@ -60,7 +57,6 @@ const VoiceTest: React.FC = () => {
   const handleStartRecording = async () => {
     setErrorInfo(null);
     setCurrentText('');
-    accumulatedTextRef.current = ''; // 重置累积文本
     setIsRecording(true);
 
     try {
@@ -68,22 +64,20 @@ const VoiceTest: React.FC = () => {
         (result: RecognitionResult) => {
           console.log('识别结果:', result);
           
-          // 累积所有识别片段
-          accumulatedTextRef.current += result.text;
-          setCurrentText(accumulatedTextRef.current);
+          // 科大讯飞返回的 text 已经是累积的完整结果，直接使用即可
+          setCurrentText(result.text);
 
           if (result.isFinal) {
             // 保存完整的识别记录
             const record: RecognitionRecord = {
               id: Date.now(),
-              text: accumulatedTextRef.current,
+              text: result.text,
               isFinal: true,
               timestamp: new Date().toLocaleTimeString('zh-CN'),
               confidence: result.confidence,
             };
             setRecords((prev) => [record, ...prev]);
             setCurrentText('');
-            accumulatedTextRef.current = '';
             message.success('识别完成');
           }
         },
@@ -117,7 +111,6 @@ const VoiceTest: React.FC = () => {
   const clearRecords = () => {
     setRecords([]);
     setCurrentText('');
-    accumulatedTextRef.current = '';
     setErrorInfo(null);
     message.success('已清除记录');
   };

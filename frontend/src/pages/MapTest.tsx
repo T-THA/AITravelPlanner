@@ -38,7 +38,7 @@ const MapTest: React.FC = () => {
 
   // 检查 API 配置
   const isConfigured =
-    import.meta.env.VITE_AMAP_KEY && import.meta.env.VITE_AMAP_SECRET;
+    import.meta.env.VITE_AMAP_JS_KEY && import.meta.env.VITE_AMAP_JS_SECRET;
 
   // 初始化地图
   useEffect(() => {
@@ -238,7 +238,7 @@ const MapTest: React.FC = () => {
           {!isConfigured && (
             <Alert
               message="API 未配置"
-              description="请在 .env 文件中配置高德地图 API 密钥（VITE_AMAP_KEY、VITE_AMAP_SECRET）"
+              description="请在 .env 文件中配置高德地图 JS API 密钥（VITE_AMAP_JS_KEY、VITE_AMAP_JS_SECRET）"
               type="warning"
               showIcon
             />
