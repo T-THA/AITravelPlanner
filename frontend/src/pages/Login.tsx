@@ -13,7 +13,7 @@ const Login: React.FC = () => {
   const [successMessage, setSuccessMessage] = useState<string>('');
   const navigate = useNavigate();
   const location = useLocation();
-  const { setUser, isAuthenticated, isLoading } = useAuthStore();
+  const { setUser, setProfile, isAuthenticated, isLoading } = useAuthStore();
 
   // 如果已登录，直接跳转到仪表板
   useEffect(() => {
@@ -54,6 +54,24 @@ const Login: React.FC = () => {
       
       if (data.user) {
         setUser(data.user);
+        
+        // 加载用户 Profile
+        try {
+          const { profile } = await authService.getUserProfile(data.user.id);
+          if (profile) {
+            setProfile(profile);
+          } else {
+            // 如果 profile 不存在,创建一个空的
+            const { profile: newProfile } = await authService.createUserProfile(data.user.id, {});
+            if (newProfile) {
+              setProfile(newProfile);
+            }
+          }
+        } catch (profileError) {
+          console.error('Load profile error:', profileError);
+          // Profile 加载失败不影响登录
+        }
+        
         setSuccessMessage('登录成功！欢迎回来，正在跳转...');
         
         // 延迟跳转,让用户看到成功消息

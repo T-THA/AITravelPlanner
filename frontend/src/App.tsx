@@ -43,6 +43,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
 function App() {
   const setUser = useAuthStore(state => state.setUser);
+  const setProfile = useAuthStore(state => state.setProfile);
   const setLoading = useAuthStore(state => state.setLoading);
 
   // 在应用启动时检查并恢复用户会话
@@ -50,23 +51,38 @@ function App() {
     const initAuth = async () => {
       try {
         const { supabase } = await import('./services/supabase');
+        const { authService } = await import('./services/auth');
         const { data: { session } } = await supabase.auth.getSession();
         
         if (session?.user) {
           setUser(session.user);
+          
+          // 加载用户 Profile
+          const { profile } = await authService.getUserProfile(session.user.id);
+          if (profile) {
+            setProfile(profile);
+          } else {
+            // 如果 profile 不存在,创建一个空的
+            const { profile: newProfile } = await authService.createUserProfile(session.user.id, {});
+            if (newProfile) {
+              setProfile(newProfile);
+            }
+          }
         } else {
           setUser(null);
+          setProfile(null);
         }
       } catch (error) {
         console.error('Failed to restore session:', error);
         setUser(null);
+        setProfile(null);
       } finally {
         setLoading(false);
       }
     };
 
     initAuth();
-  }, [setUser, setLoading]);
+  }, [setUser, setProfile, setLoading]);
 
   return (
     <ConfigProvider locale={zhCN}>
