@@ -1,95 +1,126 @@
 import React from 'react';
-import { Button, Card, Typography, Space, message, Divider } from 'antd';
-import { LogoutOutlined, UserOutlined, AudioOutlined, EnvironmentOutlined, ApiOutlined } from '@ant-design/icons';
+import { Card, Typography, Space, Row, Col, Statistic } from 'antd';
+import { UserOutlined, AudioOutlined, EnvironmentOutlined, ApiOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
-import { authService } from '../services/auth';
 
-const { Title, Text } = Typography;
+const { Title, Paragraph } = Typography;
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const user = useAuthStore(state => state.user);
-  const logout = useAuthStore(state => state.logout);
-
-  const handleLogout = async () => {
-    try {
-      await authService.signOut();
-      logout();
-      message.success('已退出登录');
-      navigate('/login');
-    } catch (error) {
-      message.error('退出登录失败');
-      console.error('Logout error:', error);
-    }
-  };
 
   return (
-    <div style={{ padding: '24px', minHeight: '100vh', backgroundColor: '#f0f2f5' }}>
-      <div style={{ maxWidth: '95%', width: '100%', margin: '0 auto' }}>
-        <Card>
-          <Space direction="vertical" size="large" style={{ width: '100%' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Title level={2}>控制面板</Title>
-              <Button 
-                type="primary" 
-                danger 
-                icon={<LogoutOutlined />}
-                onClick={handleLogout}
-              >
-                退出登录
-              </Button>
-            </div>
-          
-          <Card type="inner" title={<><UserOutlined /> 用户信息</>}>
-            <Space direction="vertical">
-              <Text><strong>邮箱:</strong> {user?.email}</Text>
-              <Text><strong>用户 ID:</strong> {user?.id}</Text>
-              <Text type="secondary">
-                登录时间: {user?.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleString('zh-CN') : '未知'}
-              </Text>
-            </Space>
-          </Card>
+    <div>
+      <Title level={2}>欢迎回来!</Title>
+      <Paragraph type="secondary">
+        您好,{user?.email?.split('@')[0]}!开始规划您的下一段旅程吧。
+      </Paragraph>
 
-          <Card type="inner" title="欢迎使用 AI 旅行规划师！">
-            <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-              <Text>您已成功登录系统。</Text>
-              
-              <Divider />
-              
+      {/* 统计卡片 */}
+      <Row gutter={[16, 16]} style={{ marginTop: 24 }}>
+        <Col xs={24} sm={12} lg={6}>
+          <Card>
+            <Statistic
+              title="我的行程"
+              value={0}
+              suffix="个"
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Card>
+            <Statistic
+              title="总计费用"
+              value={0}
+              prefix="¥"
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Card>
+            <Statistic
+              title="待出发"
+              value={0}
+              suffix="个"
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Card>
+            <Statistic
+              title="已完成"
+              value={0}
+              suffix="个"
+            />
+          </Card>
+        </Col>
+      </Row>
+
+      {/* 快速操作 */}
+      <Card title="快速开始" style={{ marginTop: 24 }}>
+        <Space direction="vertical" size="large" style={{ width: '100%' }}>
+          <Card.Grid 
+            hoverable 
+            style={{ width: '100%', cursor: 'pointer' }}
+            onClick={() => navigate('/itineraries/create')}
+          >
+            <Space>
+              <ApiOutlined style={{ fontSize: 24, color: '#1890ff' }} />
               <div>
-                <Text strong>功能测试：</Text>
-                <div style={{ marginTop: '16px' }}>
-                  <Space wrap>
-                    <Button
-                      type="primary"
-                      icon={<AudioOutlined />}
-                      onClick={() => navigate('/voice-test')}
-                    >
-                      测试语音识别
-                    </Button>
-                    <Button
-                      type="primary"
-                      icon={<EnvironmentOutlined />}
-                      onClick={() => navigate('/map-test')}
-                    >
-                      测试高德地图
-                    </Button>
-                    <Button
-                      type="primary"
-                      icon={<ApiOutlined />}
-                      onClick={() => navigate('/dashscope-test')}
-                    >
-                      测试AI模型
-                    </Button>
-                  </Space>
-                </div>
+                <div style={{ fontWeight: 'bold' }}>创建新行程</div>
+                <div style={{ fontSize: 12, color: '#999' }}>使用AI智能规划您的旅程</div>
               </div>
             </Space>
-          </Card>
+          </Card.Grid>
+
+          <Card.Grid 
+            hoverable 
+            style={{ width: '100%', cursor: 'pointer' }}
+            onClick={() => navigate('/itineraries')}
+          >
+            <Space>
+              <UserOutlined style={{ fontSize: 24, color: '#52c41a' }} />
+              <div>
+                <div style={{ fontWeight: 'bold' }}>查看行程</div>
+                <div style={{ fontSize: 12, color: '#999' }}>管理您的所有旅行计划</div>
+              </div>
+            </Space>
+          </Card.Grid>
         </Space>
-        </Card>
-      </div>
+      </Card>
+
+      {/* 测试功能区 */}
+      <Card title="开发测试功能" style={{ marginTop: 24 }}>
+        <Space wrap>
+          <Card.Grid 
+            hoverable 
+            style={{ width: 200, textAlign: 'center', cursor: 'pointer' }}
+            onClick={() => navigate('/voice-test')}
+          >
+            <AudioOutlined style={{ fontSize: 32, color: '#1890ff', marginBottom: 8 }} />
+            <div>语音识别测试</div>
+          </Card.Grid>
+
+          <Card.Grid 
+            hoverable 
+            style={{ width: 200, textAlign: 'center', cursor: 'pointer' }}
+            onClick={() => navigate('/map-test')}
+          >
+            <EnvironmentOutlined style={{ fontSize: 32, color: '#52c41a', marginBottom: 8 }} />
+            <div>地图功能测试</div>
+          </Card.Grid>
+
+          <Card.Grid 
+            hoverable 
+            style={{ width: 200, textAlign: 'center', cursor: 'pointer' }}
+            onClick={() => navigate('/dashscope-test')}
+          >
+            <ApiOutlined style={{ fontSize: 32, color: '#722ed1', marginBottom: 8 }} />
+            <div>AI对话测试</div>
+          </Card.Grid>
+        </Space>
+      </Card>
     </div>
   );
 };
