@@ -9,9 +9,10 @@ const { Text, Paragraph } = Typography;
 
 interface VoiceInputProps {
   onParsed: (data: VoiceParsedData) => void;
+  onTextRecognized?: (text: string) => void; // 新增: 实时文本回调
 }
 
-const VoiceInput: React.FC<VoiceInputProps> = ({ onParsed }) => {
+const VoiceInput: React.FC<VoiceInputProps> = ({ onParsed, onTextRecognized }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isParsing, setIsParsing] = useState(false);
@@ -53,6 +54,8 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onParsed }) => {
           // 收到识别结果
           if (result.text) {
             setRecognizedText((prev) => prev + result.text);
+            // 实时回调
+            onTextRecognized?.(recognizedText + result.text);
           }
           // 如果是最终结果,自动停止录音
           if (result.isFinal) {

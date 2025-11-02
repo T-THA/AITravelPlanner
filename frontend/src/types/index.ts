@@ -113,6 +113,8 @@ export interface TripRequest {
 // 语音解析结果类型
 export interface VoiceParsedData {
   destination?: string;
+  start_date?: string;      // 出发日期 YYYY-MM-DD
+  end_date?: string;        // 返程日期 YYYY-MM-DD
   days?: number;
   budget?: number;
   travelers?: number;

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Steps,
   Form,
   Input,
   InputNumber,
@@ -19,10 +18,9 @@ import {
   EnvironmentOutlined,
   CalendarOutlined,
   DollarOutlined,
-  TeamOutlined,
-  HeartOutlined,
   HomeOutlined,
   ThunderboltOutlined,
+  AudioOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import type { TripRequest, VoiceParsedData } from '../types';
@@ -30,7 +28,6 @@ import { tripService } from '../services/trip';
 import VoiceInput from '../components/VoiceInput';
 import dayjs from 'dayjs';
 
-const { Step } = Steps;
 const { TextArea } = Input;
 const { Title, Text, Paragraph } = Typography;
 const { RangePicker } = DatePicker;
@@ -57,8 +54,8 @@ const TRAVELERS_TYPE_OPTIONS = [
 const CreateItinerary: React.FC = () => {
   const navigate = useNavigate();
   const [form] = Form.useForm();
-  const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [recognizedText, setRecognizedText] = useState('');  // 实时识别的文字
 
   // 草稿自动保存
   useEffect(() => {
@@ -93,38 +90,6 @@ const CreateItinerary: React.FC = () => {
   // 监听表单变化自动保存草稿
   const handleValuesChange = () => {
     saveDraft();
-  };
-
-  // 下一步
-  const handleNext = async () => {
-    try {
-      // 根据当前步骤验证对应字段
-      const fieldsToValidate = getFieldsByStep(currentStep);
-      await form.validateFields(fieldsToValidate);
-      setCurrentStep(currentStep + 1);
-      saveDraft();
-    } catch (error) {
-      console.error('Validation failed:', error);
-    }
-  };
-
-  // 上一步
-  const handlePrev = () => {
-    setCurrentStep(currentStep - 1);
-  };
-
-  // 获取每步需要验证的字段
-  const getFieldsByStep = (step: number): string[] => {
-    switch (step) {
-      case 0:
-        return ['destination', 'dateRange'];
-      case 1:
-        return ['budget', 'travelersCount', 'travelersType'];
-      case 2:
-        return ['preferences', 'accommodation', 'pace'];
-      default:
-        return [];
-    }
   };
 
   // 提交表单
@@ -181,6 +146,9 @@ const CreateItinerary: React.FC = () => {
   const handleVoiceInput = (parsedData: VoiceParsedData) => {
     console.log('Parsed voice data:', parsedData);
 
+    // 清空识别文字
+    setRecognizedText('');
+
     // 自动填充表单
     const updates: any = {};
 
@@ -188,8 +156,11 @@ const CreateItinerary: React.FC = () => {
       updates.destination = [parsedData.destination];
     }
 
-    if (parsedData.days && parsedData.days > 0) {
-      // 根据天数计算日期范围(从明天开始)
+    // 优先使用 LLM 解析出的日期
+    if (parsedData.start_date && parsedData.end_date) {
+      updates.dateRange = [dayjs(parsedData.start_date), dayjs(parsedData.end_date)];
+    } else if (parsedData.days && parsedData.days > 0) {
+      // 如果没有解析出日期，但有天数，则根据天数计算日期范围(从明天开始)
       const startDate = dayjs().add(1, 'day');
       const endDate = startDate.add(parsedData.days - 1, 'day');
       updates.dateRange = [startDate, endDate];
@@ -223,178 +194,193 @@ const CreateItinerary: React.FC = () => {
   };
 
   // 步骤内容
-  const steps = [
-    {
-      title: '基本信息',
-      icon: <EnvironmentOutlined />,
-      content: (
-        <>
-          <Form.Item
-            label="目的地"
-            name="destination"
-            rules={[
-              { required: true, message: '请选择目的地' },
-              { type: 'array', min: 1, message: '至少选择一个目的地' },
+  const renderFormContent = () => (
+    <>
+      {/* 语音输入 */}
+      <Card style={{ marginBottom: 24, background: '#f0f7ff' }}>
+        <Space direction="vertical" style={{ width: '100%' }}>
+          <Text strong>
+            <AudioOutlined /> 语音输入 (快捷方式)
+          </Text>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            说出您的需求,系统将自动填充表单。例如:"我想去北京玩5天,预算1万元,喜欢历史文化和美食"
+          </Text>
+          <VoiceInput 
+            onParsed={handleVoiceInput}
+            onTextRecognized={setRecognizedText}
+          />
+          {/* 实时显示识别文字 */}
+          {recognizedText && (
+            <div style={{ 
+              padding: '12px', 
+              background: 'white', 
+              borderRadius: '8px',
+              border: '1px solid #d9d9d9'
+            }}>
+              <Text type="secondary" style={{ fontSize: 12 }}>识别结果：</Text>
+              <div style={{ marginTop: 8 }}>
+                <Text>{recognizedText}</Text>
+              </div>
+            </div>
+          )}
+        </Space>
+      </Card>
+
+      {/* 基本信息 */}
+      <Card title="📍 基本信息" style={{ marginBottom: 24 }}>
+        <Form.Item
+          label="目的地"
+          name="destination"
+          rules={[
+            { required: true, message: '请选择目的地' },
+            { type: 'array', min: 1, message: '至少选择一个目的地' },
+          ]}
+        >
+          <Select
+            mode="tags"
+            placeholder="请输入目的地城市 (支持多个)"
+            size="large"
+            suffixIcon={<EnvironmentOutlined />}
+            options={[
+              { label: '北京', value: '北京' },
+              { label: '上海', value: '上海' },
+              { label: '广州', value: '广州' },
+              { label: '深圳', value: '深圳' },
+              { label: '成都', value: '成都' },
+              { label: '西安', value: '西安' },
+              { label: '杭州', value: '杭州' },
+              { label: '重庆', value: '重庆' },
             ]}
-          >
-            <Select
-              mode="tags"
-              placeholder="请输入目的地城市 (支持多个)"
-              size="large"
-              suffixIcon={<EnvironmentOutlined />}
-              options={[
-                { label: '北京', value: '北京' },
-                { label: '上海', value: '上海' },
-                { label: '广州', value: '广州' },
-                { label: '深圳', value: '深圳' },
-                { label: '成都', value: '成都' },
-                { label: '西安', value: '西安' },
-                { label: '杭州', value: '杭州' },
-                { label: '重庆', value: '重庆' },
-              ]}
-            />
-          </Form.Item>
+          />
+        </Form.Item>
 
-          <Form.Item
-            label="出行日期"
-            name="dateRange"
-            rules={[{ required: true, message: '请选择出行日期' }]}
-          >
-            <RangePicker
-              size="large"
-              style={{ width: '100%' }}
-              placeholder={['出发日期', '返程日期']}
-              disabledDate={(current) => current && current < dayjs().startOf('day')}
-              suffixIcon={<CalendarOutlined />}
-            />
-          </Form.Item>
+        <Form.Item
+          label="出行日期"
+          name="dateRange"
+          rules={[{ required: true, message: '请选择出行日期' }]}
+        >
+          <RangePicker
+            size="large"
+            style={{ width: '100%' }}
+            placeholder={['出发日期', '返程日期']}
+            disabledDate={(current) => current && current < dayjs().startOf('day')}
+            suffixIcon={<CalendarOutlined />}
+          />
+        </Form.Item>
+      </Card>
 
-          <Form.Item label="语音输入" help="通过语音快速填写需求">
-            <VoiceInput onParsed={handleVoiceInput} />
-          </Form.Item>
-        </>
-      ),
-    },
-    {
-      title: '预算与人员',
-      icon: <TeamOutlined />,
-      content: (
-        <>
-          <Form.Item
-            label="预算金额"
-            name="budget"
-            rules={[
-              { required: true, message: '请输入预算金额' },
-              { type: 'number', min: 100, message: '预算至少100元' },
-            ]}
-          >
-            <InputNumber
-              size="large"
-              style={{ width: '100%' }}
-              placeholder="请输入预算金额 (元)"
-              prefix={<DollarOutlined />}
-              formatter={(value) => `¥ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-              parser={(value) => value!.replace(/¥\s?|(,*)/g, '') as any}
-            />
-          </Form.Item>
+      {/* 预算与人员 */}
+      <Card title="💰 预算与人员" style={{ marginBottom: 24 }}>
+        <Form.Item
+          label="预算金额"
+          name="budget"
+          rules={[
+            { required: true, message: '请输入预算金额' },
+            { type: 'number', min: 100, message: '预算至少100元' },
+          ]}
+        >
+          <InputNumber
+            size="large"
+            style={{ width: '100%' }}
+            placeholder="请输入预算金额 (元)"
+            prefix={<DollarOutlined />}
+            formatter={(value) => `¥ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+            parser={(value) => value!.replace(/¥\s?|(,*)/g, '') as any}
+          />
+        </Form.Item>
 
-          <Form.Item
-            label="同行人数"
-            name="travelersCount"
-            rules={[
-              { required: true, message: '请输入同行人数' },
-              { type: 'number', min: 1, message: '至少1人' },
-            ]}
-          >
-            <InputNumber
-              size="large"
-              style={{ width: '100%' }}
-              placeholder="请输入同行人数"
-              min={1}
-              max={99}
-            />
-          </Form.Item>
+        <Form.Item
+          label="同行人数"
+          name="travelersCount"
+          rules={[
+            { required: true, message: '请输入同行人数' },
+            { type: 'number', min: 1, message: '至少1人' },
+          ]}
+        >
+          <InputNumber
+            size="large"
+            style={{ width: '100%' }}
+            placeholder="请输入同行人数"
+            min={1}
+            max={99}
+          />
+        </Form.Item>
 
-          <Form.Item
-            label="人员构成"
-            name="travelersType"
-            rules={[
-              { required: true, message: '请选择人员构成' },
-              { type: 'array', min: 1, message: '至少选择一项' },
-            ]}
-          >
-            <Checkbox.Group options={TRAVELERS_TYPE_OPTIONS} />
-          </Form.Item>
-        </>
-      ),
-    },
-    {
-      title: '偏好设置',
-      icon: <HeartOutlined />,
-      content: (
-        <>
-          <Form.Item
-            label="旅行偏好"
-            name="preferences"
-            rules={[
-              { required: true, message: '请选择旅行偏好' },
-              { type: 'array', min: 1, message: '至少选择一项' },
-            ]}
-          >
-            <Checkbox.Group options={PREFERENCE_OPTIONS} />
-          </Form.Item>
+        <Form.Item
+          label="人员构成"
+          name="travelersType"
+          rules={[
+            { required: true, message: '请选择人员构成' },
+            { type: 'array', min: 1, message: '至少选择一项' },
+          ]}
+        >
+          <Checkbox.Group options={TRAVELERS_TYPE_OPTIONS} />
+        </Form.Item>
+      </Card>
 
-          <Form.Item
-            label="住宿偏好"
-            name="accommodation"
-            rules={[{ required: true, message: '请选择住宿偏好' }]}
-          >
-            <Radio.Group size="large">
-              <Radio.Button value="经济型">
-                <HomeOutlined /> 经济型
-              </Radio.Button>
-              <Radio.Button value="舒适型">
-                <HomeOutlined /> 舒适型
-              </Radio.Button>
-              <Radio.Button value="豪华型">
-                <HomeOutlined /> 豪华型
-              </Radio.Button>
-            </Radio.Group>
-          </Form.Item>
+      {/* 偏好设置 */}
+      <Card title="❤️ 偏好设置" style={{ marginBottom: 24 }}>
+        <Form.Item
+          label="旅行偏好"
+          name="preferences"
+          rules={[
+            { required: true, message: '请选择旅行偏好' },
+            { type: 'array', min: 1, message: '至少选择一项' },
+          ]}
+        >
+          <Checkbox.Group options={PREFERENCE_OPTIONS} />
+        </Form.Item>
 
-          <Form.Item
-            label="行程节奏"
-            name="pace"
-            rules={[{ required: true, message: '请选择行程节奏' }]}
-          >
-            <Radio.Group size="large">
-              <Radio.Button value="休闲">
-                <ThunderboltOutlined /> 休闲
-              </Radio.Button>
-              <Radio.Button value="适中">
-                <ThunderboltOutlined /> 适中
-              </Radio.Button>
-              <Radio.Button value="紧凑">
-                <ThunderboltOutlined /> 紧凑
-              </Radio.Button>
-            </Radio.Group>
-          </Form.Item>
+        <Form.Item
+          label="住宿偏好"
+          name="accommodation"
+          rules={[{ required: true, message: '请选择住宿偏好' }]}
+        >
+          <Radio.Group size="large">
+            <Radio.Button value="经济型">
+              <HomeOutlined /> 经济型
+            </Radio.Button>
+            <Radio.Button value="舒适型">
+              <HomeOutlined /> 舒适型
+            </Radio.Button>
+            <Radio.Button value="豪华型">
+              <HomeOutlined /> 豪华型
+            </Radio.Button>
+          </Radio.Group>
+        </Form.Item>
 
-          <Form.Item label="特殊需求" name="specialNeeds">
-            <TextArea
-              rows={4}
-              placeholder="请输入其他特殊需求 (可选)"
-              maxLength={500}
-              showCount
-            />
-          </Form.Item>
-        </>
-      ),
-    },
-  ];
+        <Form.Item
+          label="行程节奏"
+          name="pace"
+          rules={[{ required: true, message: '请选择行程节奏' }]}
+        >
+          <Radio.Group size="large">
+            <Radio.Button value="休闲">
+              <ThunderboltOutlined /> 休闲
+            </Radio.Button>
+            <Radio.Button value="适中">
+              <ThunderboltOutlined /> 适中
+            </Radio.Button>
+            <Radio.Button value="紧凑">
+              <ThunderboltOutlined /> 紧凑
+            </Radio.Button>
+          </Radio.Group>
+        </Form.Item>
+
+        <Form.Item label="特殊需求" name="specialNeeds">
+          <TextArea
+            rows={4}
+            placeholder="请输入其他特殊需求 (可选)"
+            maxLength={500}
+            showCount
+          />
+        </Form.Item>
+      </Card>
+    </>
+  );
 
   return (
-    <div style={{ padding: '24px', maxWidth: 1200, margin: '0 auto' }}>
+    <div style={{ padding: '24px', maxWidth: 1000, margin: '0 auto' }}>
       <Card>
         <div style={{ marginBottom: 32 }}>
           <Title level={2}>
@@ -404,12 +390,6 @@ const CreateItinerary: React.FC = () => {
             请填写您的旅行需求,我们将为您生成个性化的行程方案
           </Paragraph>
         </div>
-
-        <Steps current={currentStep} style={{ marginBottom: 40 }}>
-          {steps.map((item) => (
-            <Step key={item.title} title={item.title} icon={item.icon} />
-          ))}
-        </Steps>
 
         <Form
           form={form}
@@ -423,31 +403,18 @@ const CreateItinerary: React.FC = () => {
             pace: '适中',
           }}
         >
-          <div style={{ minHeight: 400 }}>{steps[currentStep].content}</div>
+          {renderFormContent()}
 
-          <div style={{ marginTop: 40, textAlign: 'right' }}>
-            <Space>
-              {currentStep > 0 && (
-                <Button onClick={handlePrev} size="large">
-                  上一步
-                </Button>
-              )}
-              {currentStep < steps.length - 1 && (
-                <Button type="primary" onClick={handleNext} size="large">
-                  下一步
-                </Button>
-              )}
-              {currentStep === steps.length - 1 && (
-                <Button
-                  type="primary"
-                  onClick={handleSubmit}
-                  loading={loading}
-                  size="large"
-                >
-                  提交并生成行程
-                </Button>
-              )}
-            </Space>
+          <div style={{ marginTop: 40, textAlign: 'center' }}>
+            <Button
+              type="primary"
+              onClick={handleSubmit}
+              loading={loading}
+              size="large"
+              block
+            >
+              提交并生成行程
+            </Button>
           </div>
         </Form>
 
