@@ -9,10 +9,9 @@ const { Text, Paragraph } = Typography;
 
 interface VoiceInputProps {
   onParsed: (data: VoiceParsedData) => void;
-  onTextRecognized?: (text: string) => void; // 新增: 实时文本回调
 }
 
-const VoiceInput: React.FC<VoiceInputProps> = ({ onParsed, onTextRecognized }) => {
+const VoiceInput: React.FC<VoiceInputProps> = ({ onParsed }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isParsing, setIsParsing] = useState(false);
@@ -51,11 +50,10 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onParsed, onTextRecognized }) =
       // 开始录音和识别
       await iflytekASRService.startRecognition(
         (result) => {
-          // 收到识别结果
+          // 收到识别结果 - 使用替换而不是累加，避免重复
           if (result.text) {
-            setRecognizedText((prev) => prev + result.text);
-            // 实时回调
-            onTextRecognized?.(recognizedText + result.text);
+            // 如果是增量结果，直接使用最新文本（讯飞会发送完整的当前句子）
+            setRecognizedText(result.text);
           }
           // 如果是最终结果,自动停止录音
           if (result.isFinal) {
@@ -192,6 +190,23 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onParsed, onTextRecognized }) =
                   {formatTime(recordingTime)}
                 </Text>
                 <Text type="secondary">正在录音中...</Text>
+                {/* 实时显示识别文字 */}
+                {recognizedText && (
+                  <div style={{ 
+                    background: '#f0f0f0', 
+                    padding: 12, 
+                    borderRadius: 8,
+                    minHeight: 60,
+                    textAlign: 'left',
+                    marginTop: 16,
+                    width: '100%',
+                  }}>
+                    <Text type="secondary" style={{ fontSize: 12 }}>实时识别:</Text>
+                    <Paragraph style={{ margin: '8px 0 0 0', whiteSpace: 'pre-wrap' }}>
+                      {recognizedText}
+                    </Paragraph>
+                  </div>
+                )}
               </Space>
             )}
 
@@ -231,7 +246,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onParsed, onTextRecognized }) =
                 size="large"
                 onClick={stopRecording}
               >
-                停止录音
+                停止录音并识别
               </Button>
             )}
           </div>

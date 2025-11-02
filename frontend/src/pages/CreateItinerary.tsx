@@ -55,7 +55,6 @@ const CreateItinerary: React.FC = () => {
   const navigate = useNavigate();
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
-  const [recognizedText, setRecognizedText] = useState('');  // 实时识别的文字
 
   // 草稿自动保存
   useEffect(() => {
@@ -146,9 +145,6 @@ const CreateItinerary: React.FC = () => {
   const handleVoiceInput = (parsedData: VoiceParsedData) => {
     console.log('Parsed voice data:', parsedData);
 
-    // 清空识别文字
-    setRecognizedText('');
-
     // 自动填充表单
     const updates: any = {};
 
@@ -205,24 +201,7 @@ const CreateItinerary: React.FC = () => {
           <Text type="secondary" style={{ fontSize: 12 }}>
             说出您的需求,系统将自动填充表单。例如:"我想去北京玩5天,预算1万元,喜欢历史文化和美食"
           </Text>
-          <VoiceInput 
-            onParsed={handleVoiceInput}
-            onTextRecognized={setRecognizedText}
-          />
-          {/* 实时显示识别文字 */}
-          {recognizedText && (
-            <div style={{ 
-              padding: '12px', 
-              background: 'white', 
-              borderRadius: '8px',
-              border: '1px solid #d9d9d9'
-            }}>
-              <Text type="secondary" style={{ fontSize: 12 }}>识别结果：</Text>
-              <div style={{ marginTop: 8 }}>
-                <Text>{recognizedText}</Text>
-              </div>
-            </div>
-          )}
+          <VoiceInput onParsed={handleVoiceInput} />
         </Space>
       </Card>
 
