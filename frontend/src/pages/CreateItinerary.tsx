@@ -145,14 +145,25 @@ const CreateItinerary: React.FC = () => {
   const handleVoiceInput = (parsedData: VoiceParsedData) => {
     console.log('Parsed voice data:', parsedData);
 
-    // 自动填充表单
+    // 获取当前表单值，用于智能合并
+    const currentValues = form.getFieldsValue();
+
+    // 自动填充表单（智能合并，避免覆盖已有值）
     const updates: any = {};
 
+    // 目的地：如果解析出新目的地，追加或替换
     if (parsedData.destination) {
-      updates.destination = [parsedData.destination];
+      if (currentValues.destination && currentValues.destination.length > 0) {
+        // 如果已有目的地，追加新的（去重）
+        const existingDestinations = new Set(currentValues.destination);
+        existingDestinations.add(parsedData.destination);
+        updates.destination = Array.from(existingDestinations);
+      } else {
+        updates.destination = [parsedData.destination];
+      }
     }
 
-    // 优先使用 LLM 解析出的日期
+    // 日期：优先使用 LLM 解析出的日期
     if (parsedData.start_date && parsedData.end_date) {
       updates.dateRange = [dayjs(parsedData.start_date), dayjs(parsedData.end_date)];
     } else if (parsedData.days && parsedData.days > 0) {
@@ -162,20 +173,38 @@ const CreateItinerary: React.FC = () => {
       updates.dateRange = [startDate, endDate];
     }
 
-    if (parsedData.budget) {
+    // 预算：只在明确提到时更新
+    if (parsedData.budget && parsedData.budget > 0) {
       updates.budget = parsedData.budget;
     }
 
+    // 人数：只在大于1或表单为空时更新（避免用默认值1覆盖已有值）
     if (parsedData.travelers) {
-      updates.travelersCount = parsedData.travelers;
+      if (parsedData.travelers > 1 || !currentValues.travelersCount) {
+        updates.travelersCount = parsedData.travelers;
+      }
+      // 如果解析出的是1，且表单已经有值（>1），则不覆盖
     }
 
+    // 偏好：合并已有偏好，去重
     if (parsedData.preferences && parsedData.preferences.length > 0) {
-      updates.preferences = parsedData.preferences;
+      if (currentValues.preferences && currentValues.preferences.length > 0) {
+        // 合并并去重
+        const allPreferences = new Set([...currentValues.preferences, ...parsedData.preferences]);
+        updates.preferences = Array.from(allPreferences);
+      } else {
+        updates.preferences = parsedData.preferences;
+      }
     }
 
+    // 特殊需求：追加到已有内容
     if (parsedData.special_needs) {
-      updates.specialNeeds = parsedData.special_needs;
+      if (currentValues.specialNeeds) {
+        // 追加到已有内容，用分号分隔
+        updates.specialNeeds = currentValues.specialNeeds + '; ' + parsedData.special_needs;
+      } else {
+        updates.specialNeeds = parsedData.special_needs;
+      }
     }
 
     // 更新表单
