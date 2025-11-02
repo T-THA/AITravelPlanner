@@ -67,8 +67,23 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ open, onCance
 
       const values = form.getFieldsValue() as PasswordFormData;
 
-      // 注意: Supabase Auth 的 updatePassword 不需要验证当前密码
-      // 如果需要验证当前密码,需要先用当前密码尝试登录
+      // 1. 先验证当前密码是否正确
+      const { user } = await authService.getCurrentUser();
+      if (!user || !user.email) {
+        message.error('无法获取当前用户信息');
+        setLoading(false);
+        return;
+      }
+
+      // 尝试用当前密码登录来验证密码是否正确
+      const { error: signInError } = await authService.signIn(user.email, values.currentPassword);
+      if (signInError) {
+        message.error('当前密码不正确');
+        setLoading(false);
+        return;
+      }
+
+      // 2. 更新为新密码
       const { error } = await authService.updatePassword(values.newPassword);
 
       if (error) {
@@ -119,8 +134,8 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ open, onCance
         layout="vertical"
         style={{ marginTop: 24 }}
       >
-        {/* 当前密码 - 可选,Supabase 不需要 */}
-        {/* <Form.Item
+        {/* 当前密码 */}
+        <Form.Item
           label="当前密码"
           name="currentPassword"
           rules={[
@@ -132,12 +147,13 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ open, onCance
             placeholder="请输入当前密码"
             size="large"
           />
-        </Form.Item> */}
+        </Form.Item>
 
         {/* 新密码 */}
         <Form.Item
           label="新密码"
           name="newPassword"
+          dependencies={['currentPassword']}
           rules={[
             { required: true, message: '请输入新密码' },
             { min: 8, message: '密码长度至少为 8 个字符' },
@@ -145,6 +161,18 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ open, onCance
               pattern: /^(?=.*[a-zA-Z])(?=.*\d).+$/,
               message: '密码必须包含字母和数字',
             },
+            ({ getFieldValue }) => ({
+              validator(_, value) {
+                const currentPassword = getFieldValue('currentPassword');
+                if (!value || !currentPassword) {
+                  return Promise.resolve();
+                }
+                if (value === currentPassword) {
+                  return Promise.reject(new Error('新密码不能与当前密码相同'));
+                }
+                return Promise.resolve();
+              },
+            }),
           ]}
         >
           <Input.Password

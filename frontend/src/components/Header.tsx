@@ -22,6 +22,7 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({ collapsed, onToggle }) => {
   const navigate = useNavigate();
   const user = useAuthStore(state => state.user);
+  const profile = useAuthStore(state => state.profile);
   const logout = useAuthStore(state => state.logout);
 
   const handleLogout = async () => {
@@ -86,9 +87,12 @@ const Header: React.FC<HeaderProps> = ({ collapsed, onToggle }) => {
       {/* 用户信息 */}
       <Dropdown menu={{ items: userMenuItems }} placement="bottomRight" arrow>
         <Space style={{ cursor: 'pointer', padding: '0 8px' }}>
-          <Avatar icon={<UserOutlined />} src={user?.user_metadata?.avatar_url} />
+          <Avatar 
+            icon={<UserOutlined />} 
+            src={profile?.avatar_url || user?.user_metadata?.avatar_url} 
+          />
           <span style={{ color: '#000', fontWeight: 500 }}>
-            {user?.user_metadata?.name || user?.email?.split('@')[0] || '用户'}
+            {profile?.username || user?.user_metadata?.name || user?.email?.split('@')[0] || '用户'}
           </span>
         </Space>
       </Dropdown>
