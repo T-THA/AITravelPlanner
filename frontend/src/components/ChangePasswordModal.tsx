@@ -92,15 +92,11 @@ const ChangePasswordModal: React.FC<ChangePasswordModalProps> = ({ open, onCance
         return;
       }
 
-      message.success('密码修改成功!请使用新密码重新登录');
+      message.success('密码修改成功!');
       form.resetFields();
       setPasswordStrength(0);
-      
-      // 延迟跳转到登录页
-      setTimeout(() => {
-        onSuccess();
-        window.location.href = '/login';
-      }, 1500);
+      setLoading(false);
+      onSuccess();
       
     } catch (error) {
       console.error('Change password error:', error);

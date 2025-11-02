@@ -95,3 +95,28 @@ export interface VoiceRecognitionResult {
   text: string;
   confidence: number;
 }
+
+// 行程创建请求类型
+export interface TripRequest {
+  destination: string[];           // 目的地列表（支持多个城市）
+  startDate: string;                // 出发日期 YYYY-MM-DD
+  endDate: string;                  // 返程日期 YYYY-MM-DD
+  budget: number;                   // 预算（人民币）
+  travelersCount: number;           // 同行人数
+  travelersType: string[];          // 人员构成 ['成人', '儿童', '老人']
+  preferences: string[];            // 旅行偏好 ['美食', '购物', '文化', '自然', '亲子', '摄影', '历史', '休闲']
+  accommodation: '经济型' | '舒适型' | '豪华型';  // 住宿偏好
+  pace: '休闲' | '适中' | '紧凑';   // 行程节奏
+  specialNeeds?: string;            // 特殊需求（可选）
+}
+
+// 语音解析结果类型
+export interface VoiceParsedData {
+  destination?: string;
+  days?: number;
+  budget?: number;
+  travelers?: number;
+  preferences?: string[];
+  special_needs?: string;
+  confidence: number;
+}
