@@ -23,9 +23,11 @@ import {
   HeartOutlined,
   HomeOutlined,
   ThunderboltOutlined,
-  AudioOutlined,
 } from '@ant-design/icons';
-import type { TripRequest } from '../types';
+import { useNavigate } from 'react-router-dom';
+import type { TripRequest, VoiceParsedData } from '../types';
+import { tripService } from '../services/trip';
+import VoiceInput from '../components/VoiceInput';
 import dayjs from 'dayjs';
 
 const { Step } = Steps;
@@ -53,6 +55,7 @@ const TRAVELERS_TYPE_OPTIONS = [
 ];
 
 const CreateItinerary: React.FC = () => {
+  const navigate = useNavigate();
   const [form] = Form.useForm();
   const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -148,20 +151,24 @@ const CreateItinerary: React.FC = () => {
 
       console.log('Trip Request:', request);
 
-      // TODO: 保存到数据库
-      // const { data, error } = await tripService.createTrip(request);
+      // 保存到数据库
+      const { error } = await tripService.createTrip(request);
       
+      if (error) {
+        message.error('提交失败: ' + error.message);
+        setLoading(false);
+        return;
+      }
+
       message.success('需求提交成功!正在生成行程...');
       
       // 清除草稿
       localStorage.removeItem('itinerary_draft');
       
-      // TODO: 跳转到行程生成页面
-      // navigate(`/itineraries/generate/${data.id}`);
+      // 跳转到行程列表页
       setTimeout(() => {
-        setLoading(false);
-        message.info('行程生成功能即将开放...');
-      }, 1500);
+        navigate('/itineraries');
+      }, 1000);
       
     } catch (error) {
       console.error('Submit error:', error);
@@ -171,9 +178,48 @@ const CreateItinerary: React.FC = () => {
   };
 
   // 语音输入处理
-  const handleVoiceInput = () => {
-    message.info('语音输入功能即将开放...');
-    // TODO: 集成语音识别
+  const handleVoiceInput = (parsedData: VoiceParsedData) => {
+    console.log('Parsed voice data:', parsedData);
+
+    // 自动填充表单
+    const updates: any = {};
+
+    if (parsedData.destination) {
+      updates.destination = [parsedData.destination];
+    }
+
+    if (parsedData.days && parsedData.days > 0) {
+      // 根据天数计算日期范围(从明天开始)
+      const startDate = dayjs().add(1, 'day');
+      const endDate = startDate.add(parsedData.days - 1, 'day');
+      updates.dateRange = [startDate, endDate];
+    }
+
+    if (parsedData.budget) {
+      updates.budget = parsedData.budget;
+    }
+
+    if (parsedData.travelers) {
+      updates.travelersCount = parsedData.travelers;
+    }
+
+    if (parsedData.preferences && parsedData.preferences.length > 0) {
+      updates.preferences = parsedData.preferences;
+    }
+
+    if (parsedData.special_needs) {
+      updates.specialNeeds = parsedData.special_needs;
+    }
+
+    // 更新表单
+    form.setFieldsValue(updates);
+    
+    // 保存草稿
+    saveDraft();
+
+    message.success(
+      `已自动填充 ${Object.keys(updates).length} 个字段 (置信度: ${(parsedData.confidence * 100).toFixed(0)}%)`
+    );
   };
 
   // 步骤内容
@@ -224,14 +270,7 @@ const CreateItinerary: React.FC = () => {
           </Form.Item>
 
           <Form.Item label="语音输入" help="通过语音快速填写需求">
-            <Button
-              icon={<AudioOutlined />}
-              onClick={handleVoiceInput}
-              block
-              size="large"
-            >
-              点击录音
-            </Button>
+            <VoiceInput onParsed={handleVoiceInput} />
           </Form.Item>
         </>
       ),
