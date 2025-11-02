@@ -50,10 +50,20 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onParsed }) => {
       // 开始录音和识别
       await iflytekASRService.startRecognition(
         (result) => {
-          // 收到识别结果 - 使用替换而不是累加，避免重复
+          // 收到识别结果 - 智能处理增量和追加
           if (result.text) {
-            // 如果是增量结果，直接使用最新文本（讯飞会发送完整的当前句子）
-            setRecognizedText(result.text);
+            setRecognizedText((prev) => {
+              // 如果当前文本为空，直接使用新文本
+              if (!prev) return result.text;
+              
+              // 如果新文本以前一个文本开头或内容更长，说明是同一句话的增量更新，直接替换
+              if (result.text.startsWith(prev) || result.text.length > prev.length + 5) {
+                return result.text;
+              }
+              
+              // 否则是新内容（如标点符号或新句子），追加到后面
+              return prev + result.text;
+            });
           }
           // 如果是最终结果,自动停止录音
           if (result.isFinal) {
@@ -197,12 +207,18 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onParsed }) => {
                     padding: 12, 
                     borderRadius: 8,
                     minHeight: 60,
+                    maxWidth: '520px',  // 限制最大宽度，避免碰到边界
                     textAlign: 'left',
                     marginTop: 16,
                     width: '100%',
+                    boxSizing: 'border-box',  // 确保 padding 不会让宽度溢出
                   }}>
                     <Text type="secondary" style={{ fontSize: 12 }}>实时识别:</Text>
-                    <Paragraph style={{ margin: '8px 0 0 0', whiteSpace: 'pre-wrap' }}>
+                    <Paragraph style={{ 
+                      margin: '8px 0 0 0', 
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',  // 长词自动换行
+                    }}>
                       {recognizedText}
                     </Paragraph>
                   </div>
