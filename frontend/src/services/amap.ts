@@ -25,6 +25,12 @@ export interface PlaceInfo {
   type?: string;
   tel?: string;
   distance?: number;
+  // 新增详细信息字段
+  rating?: string; // 评分
+  cost?: string; // 人均消费
+  openTime?: string; // 营业时间
+  businessArea?: string; // 商圈
+  photos?: string[]; // 图片URLs
 }
 
 // 路径规划结果
@@ -157,7 +163,7 @@ class AmapService {
         city: params.city || '全国',
         pageSize: params.pageSize || 10,
         pageIndex: params.pageIndex || 1,
-        extensions: 'all',
+        extensions: 'all', // 获取详细信息
       });
 
       placeSearch.search(params.keywords, (status: string, result: any) => {
@@ -172,6 +178,12 @@ class AmapService {
             },
             type: poi.type,
             tel: poi.tel,
+            // 新增字段
+            rating: poi.biz_ext?.rating, // 评分
+            cost: poi.biz_ext?.cost, // 人均消费
+            openTime: poi.biz_ext?.opentime, // 营业时间
+            businessArea: poi.businessArea, // 商圈
+            photos: poi.photos?.map((p: any) => p.url), // 图片
           }));
 
           console.log(`✅ 搜索到 ${places.length} 个结果`);
@@ -182,6 +194,38 @@ class AmapService {
         }
       });
     });
+  }
+
+  /**
+   * 根据名称和位置搜索POI详情
+   * @param name 地点名称
+   * @param city 所在城市
+   * @param location 坐标（可选，用于精确搜索）
+   */
+  async getPOIDetail(
+    name: string,
+    city: string,
+    location?: { lng: number; lat: number }
+  ): Promise<PlaceInfo | null> {
+    try {
+      const params: POISearchParams = {
+        keywords: name,
+        city: city,
+        pageSize: 1,
+      };
+
+      // 如果提供了坐标，使用周边搜索以提高准确性
+      if (location) {
+        params.location = `${location.lng},${location.lat}`;
+        params.radius = 1000; // 1公里范围内搜索
+      }
+
+      const results = await this.searchPOI(params);
+      return results.length > 0 ? results[0] : null;
+    } catch (error) {
+      console.error('❌ 获取POI详情失败:', error);
+      return null;
+    }
   }
 
   /**

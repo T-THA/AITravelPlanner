@@ -171,8 +171,8 @@ export interface ItineraryMapRef {
               // 存储标记与行程项的映射
               markerItemMap.current.set(marker, { item, day: day.day, index: itemIndex });
 
-              // 点击事件
-              marker.on('click', () => {
+              // 点击事件 - 异步加载POI详情
+              marker.on('click', async () => {
                 if (onMarkerClick) {
                   onMarkerClick(item, day.day);
                 }
@@ -180,13 +180,31 @@ export interface ItineraryMapRef {
                 // 关闭所有已打开的 InfoWindow
                 infoWindowsRef.current.forEach((iw: any) => iw.close());
 
-                // 显示信息窗口
+                // 先显示基础信息窗口
                 const infoWindow = new window.AMap.InfoWindow({
-                  content: createInfoWindowContent(item, day.day),
+                  content: createInfoWindowContent(item, day.day, null, true), // 显示加载中
                   offset: new window.AMap.Pixel(0, -30),
                 });
                 infoWindow.open(map, marker.getPosition());
                 infoWindowsRef.current.push(infoWindow);
+
+                // 异步加载POI详情
+                try {
+                  const poiDetail = await amapService.getPOIDetail(
+                    item.title,
+                    city,
+                    position ? { lng: position[0], lat: position[1] } : undefined
+                  );
+                  
+                  // 更新信息窗口内容
+                  if (poiDetail) {
+                    infoWindow.setContent(createInfoWindowContent(item, day.day, poiDetail, false));
+                  }
+                } catch (error) {
+                  console.warn('⚠️ 加载POI详情失败:', error);
+                  // 失败时显示基础信息
+                  infoWindow.setContent(createInfoWindowContent(item, day.day, null, false));
+                }
                 
                 // 高亮当前标记
                 marker.setAnimation('AMAP_ANIMATION_BOUNCE');
@@ -294,15 +312,36 @@ export interface ItineraryMapRef {
       targetMarker.setAnimation('AMAP_ANIMATION_BOUNCE');
       setTimeout(() => targetMarker.setAnimation('AMAP_ANIMATION_NONE'), 1500);
 
-      // 打开 InfoWindow
+      // 打开 InfoWindow（异步加载POI详情）
       const data = markerItemMap.current.get(targetMarker);
       if (data) {
+        // 先显示基础信息
         const infoWindow = new window.AMap.InfoWindow({
-          content: createInfoWindowContent(data.item, data.day),
+          content: createInfoWindowContent(data.item, data.day, null, true),
           offset: new window.AMap.Pixel(0, -30),
         });
         infoWindow.open(map, position);
         infoWindowsRef.current.push(infoWindow);
+
+        // 异步加载POI详情
+        (async () => {
+          try {
+            const poiDetail = await amapService.getPOIDetail(
+              data.item.title,
+              city,
+              { lng: position.lng, lat: position.lat }
+            );
+            
+            if (poiDetail) {
+              infoWindow.setContent(createInfoWindowContent(data.item, data.day, poiDetail, false));
+            } else {
+              infoWindow.setContent(createInfoWindowContent(data.item, data.day, null, false));
+            }
+          } catch (error) {
+            console.warn('⚠️ 加载POI详情失败:', error);
+            infoWindow.setContent(createInfoWindowContent(data.item, data.day, null, false));
+          }
+        })();
       }
     },
   }));
@@ -321,29 +360,131 @@ export interface ItineraryMapRef {
   };
 
   // 创建信息窗口内容
-  const createInfoWindowContent = (item: ItineraryItem, day: number): string => {
+  const createInfoWindowContent = (
+    item: ItineraryItem,
+    day: number,
+    poiDetail: any | null = null,
+    isLoading: boolean = false
+  ): string => {
     const typeMap: Record<string, string> = {
       attraction: '景点',
       restaurant: '餐厅',
       hotel: '酒店',
       transport: '交通',
+      shopping: '购物',
       other: '其他',
     };
 
-    return `
-      <div style="padding: 10px; min-width: 200px;">
-        <h4 style="margin: 0 0 8px 0; font-size: 16px;">Day ${day}: ${item.title}</h4>
-        <p style="margin: 4px 0; color: #666;">
-          <span style="background: #1890ff; color: white; padding: 2px 8px; border-radius: 3px; font-size: 12px;">
+    // 加载中状态
+    if (isLoading) {
+      return `
+        <div style="padding: 12px; min-width: 250px;">
+          <h4 style="margin: 0 0 10px 0; font-size: 16px; font-weight: 600;">Day ${day}: ${item.title}</h4>
+          <div style="text-align: center; padding: 20px 0; color: #999;">
+            <div style="display: inline-block; width: 20px; height: 20px; border: 2px solid #1890ff; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+            <p style="margin: 10px 0 0 0;">加载详细信息中...</p>
+          </div>
+          <style>
+            @keyframes spin {
+              to { transform: rotate(360deg); }
+            }
+          </style>
+        </div>
+      `;
+    }
+
+    // 构建基础信息
+    let content = `
+      <div style="padding: 12px; min-width: 250px; max-width: 350px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        <h4 style="margin: 0 0 10px 0; font-size: 16px; font-weight: 600; color: #262626;">
+          Day ${day}: ${item.title}
+        </h4>
+        
+        <div style="margin: 8px 0;">
+          <span style="background: #1890ff; color: white; padding: 2px 10px; border-radius: 12px; font-size: 12px; margin-right: 8px;">
             ${typeMap[item.type] || item.type}
           </span>
-          <span style="margin-left: 8px;">${item.time}</span>
-        </p>
-        <p style="margin: 4px 0; color: #666;">${item.description}</p>
-        <p style="margin: 4px 0; color: #666;">📍 ${item.location}</p>
-        ${item.cost ? `<p style="margin: 4px 0; color: #f5222d;">💰 ¥${item.cost}</p>` : ''}
-      </div>
+          <span style="color: #8c8c8c; font-size: 13px;">${item.time}</span>
+        </div>
     `;
+
+    // 添加描述
+    if (item.description) {
+      content += `
+        <p style="margin: 10px 0; color: #595959; font-size: 13px; line-height: 1.5;">
+          ${item.description}
+        </p>
+      `;
+    }
+
+    // 添加位置
+    content += `
+      <p style="margin: 8px 0; color: #8c8c8c; font-size: 13px;">
+        📍 ${item.location}
+      </p>
+    `;
+
+    // 添加POI详细信息（如果有）
+    if (poiDetail) {
+      // 评分
+      if (poiDetail.rating) {
+        const rating = parseFloat(poiDetail.rating);
+        const stars = '⭐'.repeat(Math.floor(rating));
+        content += `
+          <p style="margin: 8px 0; color: #fa8c16; font-size: 13px;">
+            ${stars} ${rating.toFixed(1)}分
+          </p>
+        `;
+      }
+
+      // 人均消费
+      if (poiDetail.cost) {
+        content += `
+          <p style="margin: 8px 0; color: #f5222d; font-size: 13px;">
+            💰 人均 ¥${poiDetail.cost}
+          </p>
+        `;
+      }
+
+      // 营业时间
+      if (poiDetail.openTime) {
+        content += `
+          <p style="margin: 8px 0; color: #52c41a; font-size: 13px;">
+            🕒 ${poiDetail.openTime}
+          </p>
+        `;
+      }
+
+      // 联系电话
+      if (poiDetail.tel) {
+        content += `
+          <p style="margin: 8px 0; color: #1890ff; font-size: 13px;">
+            📞 ${poiDetail.tel}
+          </p>
+        `;
+      }
+
+      // 商圈
+      if (poiDetail.businessArea) {
+        content += `
+          <p style="margin: 8px 0; color: #8c8c8c; font-size: 12px;">
+            🏪 ${poiDetail.businessArea}
+          </p>
+        `;
+      }
+    }
+
+    // 添加行程预算成本（如果有）
+    if (item.cost) {
+      content += `
+        <p style="margin: 8px 0; color: #f5222d; font-size: 13px; font-weight: 500;">
+          � 预算 ¥${item.cost}
+        </p>
+      `;
+    }
+
+    content += `</div>`;
+    return content;
   };
 
   return (
