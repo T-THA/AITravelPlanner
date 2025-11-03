@@ -397,6 +397,7 @@ const EditItineraryDrawer: React.FC<EditItineraryDrawerProps> = ({
         item={editingItem}
         dayNumber={editingDay}
         isNew={isNewItem}
+        city={city}
         onCancel={() => setEditModalVisible(false)}
         onSave={handleSaveItem}
       />

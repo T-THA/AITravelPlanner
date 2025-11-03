@@ -369,6 +369,7 @@ const ItineraryDetail: React.FC = () => {
             }}
           >
             <ItineraryMap
+              key={JSON.stringify(itinerary.daily_itinerary)}
               ref={mapRef}
               dailyItinerary={itinerary.daily_itinerary || []}
               city={trip.destination}
