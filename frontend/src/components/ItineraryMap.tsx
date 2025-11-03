@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useImperativeHandle, forwardRef } from 'react';
-import { message } from 'antd';
+import { message, Spin } from 'antd';
 import { amapService } from '../services/amap';
 import type { DailyItinerary, ItineraryItem } from '../types';
 
@@ -14,21 +14,20 @@ export interface ItineraryMapRef {
   highlightLocation: (day: number, itemIndex: number) => void;
 }
 
-const ItineraryMap = forwardRef<ItineraryMapRef, ItineraryMapProps>(
+  const ItineraryMap = forwardRef<ItineraryMapRef, ItineraryMapProps>(
   ({ dailyItinerary, city, onMarkerClick }, ref) => {
     const mapContainer = useRef<HTMLDivElement>(null);
     const [map, setMap] = useState<any>(null);
     const [markers, setMarkers] = useState<any[]>([]);
     const [polylines, setPolylines] = useState<any[]>([]); // 存储路线
+    const [loading, setLoading] = useState(true); // 加载状态
     const infoWindowsRef = useRef<any[]>([]); // 存储所有 InfoWindow
     const containerId = useRef<string>(`map-${Date.now()}`);
     
     // 存储标记与行程项的映射关系
     const markerItemMap = useRef<Map<any, { item: ItineraryItem; day: number; index: number }>>(
       new Map()
-    );
-
-  // 初始化地图
+    );  // 初始化地图
   useEffect(() => {
     if (!mapContainer.current) return;
 
@@ -44,9 +43,11 @@ const ItineraryMap = forwardRef<ItineraryMapRef, ItineraryMapProps>(
 
         setMap(mapInstance);
         console.log('地图初始化成功');
+        setLoading(false);
       } catch (error) {
         console.error('地图初始化失败:', error);
         message.error('地图加载失败');
+        setLoading(false);
       }
     };
 
@@ -70,6 +71,7 @@ const ItineraryMap = forwardRef<ItineraryMapRef, ItineraryMapProps>(
       polylines.forEach((polyline) => polyline.setMap(null));
       setMarkers([]);
       setPolylines([]);
+      setLoading(true); // 开始加载
 
       const newMarkers: any[] = [];
       const newPolylines: any[] = [];
@@ -95,20 +97,26 @@ const ItineraryMap = forwardRef<ItineraryMapRef, ItineraryMapProps>(
             if (location) {
               const position: [number, number] = [location.lng, location.lat];
 
-              // 创建标记
+              // 创建标记 - 使用更醒目的样式
               const marker = new window.AMap.Marker({
                 position,
                 title: item.title,
                 label: {
-                  content: `Day ${day.day}: ${item.title}`,
-                  offset: new window.AMap.Pixel(0, -30),
+                  content: `Day ${day.day}`,
+                  offset: new window.AMap.Pixel(0, -40),
+                  direction: 'top',
                 },
-                // 使用天数对应的颜色
+                // 使用更大更醒目的标记
                 icon: new window.AMap.Icon({
-                  size: new window.AMap.Size(25, 34),
+                  size: new window.AMap.Size(32, 44),
                   image: `//a.amap.com/jsapi_demos/static/demo-center/icons/poi-marker-${getColorName(dayColor)}.png`,
-                  imageSize: new window.AMap.Size(25, 34),
+                  imageSize: new window.AMap.Size(32, 44),
+                  imageOffset: new window.AMap.Pixel(0, 0),
                 }),
+                // 设置标记可见层级
+                zIndex: 100 + dayIndex * 10 + itemIndex,
+                // 鼠标悬停提示
+                cursor: 'pointer',
               });
 
               // 存储标记与行程项的映射
@@ -142,19 +150,24 @@ const ItineraryMap = forwardRef<ItineraryMapRef, ItineraryMapProps>(
               allPoints.push(position);
             }
           } catch (error) {
-            console.error(`标记地点失败: ${item.title}`, error);
+            console.error(`标记地点失败: ${item.title} (${item.location})`, error);
+            // 降级处理：如果地理编码失败，记录但继续处理下一个地点
+            message.warning(`无法定位: ${item.title}，请检查地址是否正确`, 2);
           }
         }
 
-        // 绘制当天的路线（连接各个地点）
+        // 绘制当天的路线（连接各个地点）- 使用更醒目的样式
         if (dayPoints.length > 1) {
           const polyline = new window.AMap.Polyline({
             path: dayPoints,
             strokeColor: dayColor,
-            strokeWeight: 4,
-            strokeOpacity: 0.8,
+            strokeWeight: 6, // 增加线宽
+            strokeOpacity: 0.9, // 增加不透明度
             lineJoin: 'round',
             lineCap: 'round',
+            strokeStyle: 'solid',
+            zIndex: 50, // 确保路线在标记下方
+            showDir: true, // 显示方向箭头
           });
 
           polyline.setMap(map);
@@ -163,12 +176,26 @@ const ItineraryMap = forwardRef<ItineraryMapRef, ItineraryMapProps>(
       }
 
       setMarkers(newMarkers);
-      setMarkers(newMarkers);
       setPolylines(newPolylines);
+      setLoading(false); // 加载完成
 
-      // 自动调整视野以包含所有标记
+      // 自动调整视野以包含所有标记，并添加适当的边距
       if (allPoints.length > 0) {
-        map.setFitView();
+        // 使用 setTimeout 确保所有标记已经渲染
+        setTimeout(() => {
+          map.setFitView(newMarkers, false, [50, 50, 50, 50]); // 上右下左边距各50px
+        }, 100);
+      } else {
+        // 如果没有标记，尝试定位到城市中心
+        try {
+          const cityLocation = await amapService.geocode(city);
+          if (cityLocation) {
+            map.setCenter([cityLocation.lng, cityLocation.lat]);
+            map.setZoom(12);
+          }
+        } catch (error) {
+          console.warn('无法定位城市中心:', city);
+        }
       }
     };
 
@@ -260,13 +287,39 @@ const ItineraryMap = forwardRef<ItineraryMapRef, ItineraryMapProps>(
 
   return (
     <div
-      ref={mapContainer}
       style={{
         width: '100%',
         height: '100%',
         minHeight: '400px',
+        position: 'relative',
       }}
-    />
+    >
+      <div
+        ref={mapContainer}
+        style={{
+          width: '100%',
+          height: '100%',
+          minHeight: '400px',
+        }}
+      />
+      {loading && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            background: 'rgba(255, 255, 255, 0.9)',
+            padding: '20px',
+            borderRadius: '8px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+            zIndex: 1000,
+          }}
+        >
+          <Spin tip="加载地图中..." />
+        </div>
+      )}
+    </div>
   );
 });
 
