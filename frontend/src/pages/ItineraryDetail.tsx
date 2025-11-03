@@ -13,6 +13,7 @@ import {
   Row,
   Col,
   Divider,
+  Modal,
 } from 'antd';
 import {
   EnvironmentOutlined,
@@ -24,12 +25,15 @@ import {
   EditOutlined,
   ShareAltOutlined,
   SaveOutlined,
+  BarChartOutlined,
 } from '@ant-design/icons';
 import { tripService } from '../services/trip';
+import { dashScopeService } from '../services/dashscope';
 import ItineraryMap from '../components/ItineraryMap';
 import EditItineraryDrawer from '../components/EditItineraryDrawer';
+import BudgetAnalysis from '../components/BudgetAnalysis';
 import type { ItineraryMapRef } from '../components/ItineraryMap';
-import type { GeneratedItinerary } from '../types';
+import type { GeneratedItinerary, BudgetAnalysis as BudgetAnalysisType } from '../types';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -50,6 +54,11 @@ const ItineraryDetail: React.FC = () => {
   
   // Drawer状态
   const [editDrawerVisible, setEditDrawerVisible] = useState(false);
+  
+  // 预算分析状态
+  const [budgetAnalysis, setBudgetAnalysis] = useState<BudgetAnalysisType | null>(null);
+  const [budgetAnalysisVisible, setBudgetAnalysisVisible] = useState(false);
+  const [analyzingBudget, setAnalyzingBudget] = useState(false);
 
   // 加载行程数据
   useEffect(() => {
@@ -124,6 +133,33 @@ const ItineraryDetail: React.FC = () => {
     }
     
     return success;
+  };
+
+  // 分析预算
+  const handleAnalyzeBudget = async () => {
+    if (!trip || !itinerary) return;
+
+    setAnalyzingBudget(true);
+    setBudgetAnalysisVisible(true);
+
+    try {
+      const analysis = await dashScopeService.analyzeBudget({
+        userBudget: trip.budget || 0,
+        budgetBreakdown: itinerary.budget_breakdown,
+        destination: trip.destination,
+        days: itinerary.daily_itinerary.length,
+        travelers: trip.people_count || 1,
+      });
+
+      setBudgetAnalysis(analysis);
+      message.success('预算分析完成');
+    } catch (error: any) {
+      console.error('Budget analysis error:', error);
+      message.error('预算分析失败: ' + (error.message || '未知错误'));
+      setBudgetAnalysisVisible(false);
+    } finally {
+      setAnalyzingBudget(false);
+    }
   };
 
   if (loading) {
@@ -228,6 +264,13 @@ const ItineraryDetail: React.FC = () => {
               onClick={() => setEditDrawerVisible(true)}
             >
               编辑行程信息
+            </Button>
+            <Button 
+              icon={<BarChartOutlined />}
+              onClick={handleAnalyzeBudget}
+              loading={analyzingBudget}
+            >
+              预算分析
             </Button>
             <Button icon={<ShareAltOutlined />}>分享</Button>
           </Space>
@@ -560,6 +603,47 @@ const ItineraryDetail: React.FC = () => {
         onClose={() => setEditDrawerVisible(false)}
         onSave={handleSaveItinerary}
       />
+
+      {/* 预算分析Modal */}
+      <Modal
+        title={
+          <Space>
+            <BarChartOutlined />
+            <span>AI 预算分析报告</span>
+          </Space>
+        }
+        open={budgetAnalysisVisible}
+        onCancel={() => setBudgetAnalysisVisible(false)}
+        footer={[
+          <Button key="close" onClick={() => setBudgetAnalysisVisible(false)}>
+            关闭
+          </Button>,
+          <Button 
+            key="refresh" 
+            type="primary" 
+            icon={<BarChartOutlined />}
+            onClick={handleAnalyzeBudget}
+            loading={analyzingBudget}
+          >
+            重新分析
+          </Button>,
+        ]}
+        width={1200}
+        centered
+        bodyStyle={{ maxHeight: '70vh', overflow: 'auto', padding: '24px' }}
+      >
+        {analyzingBudget ? (
+          <div style={{ textAlign: 'center', padding: '60px 0' }}>
+            <Spin size="large" tip="AI 正在分析预算，请稍候..." />
+          </div>
+        ) : budgetAnalysis ? (
+          <BudgetAnalysis analysis={budgetAnalysis} />
+        ) : (
+          <div style={{ textAlign: 'center', padding: '60px 0' }}>
+            <Text type="secondary">暂无分析数据</Text>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 };
