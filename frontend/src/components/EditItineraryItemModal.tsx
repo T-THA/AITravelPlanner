@@ -66,106 +66,178 @@ const EditItineraryItemModal: React.FC<EditItineraryItemModalProps> = ({
 
   // 初始化地图
   useEffect(() => {
-    if (visible && mapContainerRef.current && !mapRef.current && window.AMap) {
-      try {
-        const map = new window.AMap.Map(mapContainerRef.current, {
-          zoom: 13,
-          center: [116.397428, 39.90923],
-        });
-        mapRef.current = map;
-
-        // 地理编码城市中心点
-        const geocoder = new window.AMap.Geocoder({ city });
-        geocoder.getLocation(city, (status: string, result: any) => {
-          if (status === 'complete' && result.geocodes.length > 0) {
-            const location = result.geocodes[0].location;
-            map.setCenter([location.lng, location.lat]);
-          }
-        });
-
-        // 如果有初始位置,标记在地图上
-        if (item?.location) {
-          geocoder.getLocation(city + item.location, (status: string, result: any) => {
-            if (status === 'complete' && result.geocodes.length > 0) {
-              const loc = result.geocodes[0].location;
-              const marker = new window.AMap.Marker({
-                position: [loc.lng, loc.lat],
-                title: item.title,
-              });
-              marker.setMap(map);
-              markerRef.current = marker;
-              map.setCenter([loc.lng, loc.lat]);
-              map.setZoom(16);
-            }
-          });
-        }
-      } catch (error) {
-        console.error('地图初始化失败:', error);
-      }
-    }
-
-    // 清理地图
-    return () => {
-      if (!visible && mapRef.current) {
+    // 延迟初始化,确保Modal和DOM完全渲染
+    if (!visible) {
+      // Modal关闭时清理地图
+      if (mapRef.current) {
         mapRef.current.destroy();
         mapRef.current = null;
         markerRef.current = null;
       }
+      setSearchResults([]);
+      setSelectedLocation(null);
+      return;
+    }
+
+    // Modal打开后延迟初始化地图
+    const timer = setTimeout(() => {
+      if (mapContainerRef.current && !mapRef.current && window.AMap) {
+        try {
+          console.log('🗺️ 初始化编辑Modal中的地图...');
+          const map = new window.AMap.Map(mapContainerRef.current, {
+            zoom: 13,
+            center: [116.397428, 39.90923],
+            resizeEnable: true,
+          });
+          mapRef.current = map;
+
+          // 地理编码城市中心点
+          const geocoder = new window.AMap.Geocoder({ city });
+          geocoder.getLocation(city, (status: string, result: any) => {
+            if (status === 'complete' && result.geocodes.length > 0) {
+              const location = result.geocodes[0].location;
+              map.setCenter([location.lng, location.lat]);
+              console.log('✅ 地图中心设置为:', city, [location.lng, location.lat]);
+            }
+          });
+
+          // 如果有初始位置,标记在地图上
+          if (item?.location) {
+            geocoder.getLocation(city + item.location, (status: string, result: any) => {
+              if (status === 'complete' && result.geocodes.length > 0) {
+                const loc = result.geocodes[0].location;
+                const marker = new window.AMap.Marker({
+                  position: [loc.lng, loc.lat],
+                  title: item.title,
+                });
+                marker.setMap(map);
+                markerRef.current = marker;
+                map.setCenter([loc.lng, loc.lat]);
+                map.setZoom(16);
+              }
+            });
+          }
+        } catch (error) {
+          console.error('❌ 地图初始化失败:', error);
+        }
+      }
+    }, 300); // 延迟300ms等待Modal动画完成
+
+    return () => {
+      clearTimeout(timer);
     };
   }, [visible, city, item]);
 
   // 搜索POI
   const handleSearch = (value: string) => {
-    if (!value || !mapRef.current) return;
+    if (!value) {
+      message.warning('请输入搜索关键词');
+      return;
+    }
+    
+    if (!mapRef.current) {
+      message.error('地图未初始化，请稍后再试');
+      console.error('❌ 地图未初始化');
+      return;
+    }
 
-    const placeSearch = new window.AMap.PlaceSearch({
-      city: city,
-      pageSize: 10,
-    });
+    if (!window.AMap || !window.AMap.PlaceSearch) {
+      message.error('地图服务加载失败');
+      console.error('❌ 高德地图PlaceSearch未加载');
+      return;
+    }
 
-    placeSearch.search(value, (status: string, result: any) => {
-      if (status === 'complete' && result.poiList) {
-        setSearchResults(result.poiList.pois);
-        if (result.poiList.pois.length > 0) {
-          handleSelectLocation(result.poiList.pois[0]);
+    console.log('🔍 搜索POI:', value, '城市:', city);
+
+    try {
+      const placeSearch = new window.AMap.PlaceSearch({
+        city: city,
+        pageSize: 10,
+        extensions: 'all', // 返回详细信息
+      });
+
+      placeSearch.search(value, (status: string, result: any) => {
+        console.log('🔍 搜索状态:', status, '结果:', result);
+        
+        if (status === 'complete' && result.poiList && result.poiList.pois) {
+          const pois = result.poiList.pois;
+          console.log(`✅ 找到 ${pois.length} 个结果`);
+          setSearchResults(pois);
+          
+          if (pois.length > 0) {
+            handleSelectLocation(pois[0]);
+          } else {
+            message.info('未找到相关地点');
+          }
+        } else if (status === 'no_data') {
+          message.info('未找到相关地点，请换个关键词试试');
+          setSearchResults([]);
+        } else {
+          message.error('搜索失败: ' + (result?.info || status));
+          console.error('❌ 搜索失败:', status, result);
+          setSearchResults([]);
         }
-      } else {
-        message.error('搜索失败');
-        setSearchResults([]);
-      }
-    });
+      });
+    } catch (error) {
+      console.error('❌ 搜索异常:', error);
+      message.error('搜索出错，请重试');
+    }
   };
 
   // 选择位置
   const handleSelectLocation = (poi: any) => {
-    setSelectedLocation(poi);
-
-    if (!mapRef.current) return;
-
-    const location = poi.location;
-
-    // 移除旧标记
-    if (markerRef.current) {
-      markerRef.current.setMap(null);
+    if (!poi || !poi.location) {
+      console.error('❌ POI数据无效:', poi);
+      return;
     }
 
-    // 添加新标记
-    const marker = new window.AMap.Marker({
-      position: [location.lng, location.lat],
-      title: poi.name,
-    });
-    marker.setMap(mapRef.current);
-    markerRef.current = marker;
+    console.log('📍 选择位置:', poi.name, poi.address);
+    setSelectedLocation(poi);
 
-    // 地图中心移动到该位置
-    mapRef.current.setCenter([location.lng, location.lat]);
-    mapRef.current.setZoom(16);
+    if (!mapRef.current) {
+      console.error('❌ 地图未初始化，无法显示标记');
+      return;
+    }
 
-    // 自动填充表单
-    form.setFieldsValue({
-      title: form.getFieldValue('title') || poi.name,
-      location: poi.address || poi.name,
-    });
+    const location = poi.location;
+    const lng = typeof location.lng === 'number' ? location.lng : parseFloat(location.lng);
+    const lat = typeof location.lat === 'number' ? location.lat : parseFloat(location.lat);
+
+    if (isNaN(lng) || isNaN(lat)) {
+      console.error('❌ 坐标无效:', location);
+      message.error('位置坐标无效');
+      return;
+    }
+
+    try {
+      // 移除旧标记
+      if (markerRef.current) {
+        markerRef.current.setMap(null);
+      }
+
+      // 添加新标记
+      const marker = new window.AMap.Marker({
+        position: [lng, lat],
+        title: poi.name,
+      });
+      marker.setMap(mapRef.current);
+      markerRef.current = marker;
+
+      // 地图中心移动到该位置
+      mapRef.current.setCenter([lng, lat]);
+      mapRef.current.setZoom(16);
+
+      // 自动填充表单
+      form.setFieldsValue({
+        title: form.getFieldValue('title') || poi.name,
+        location: poi.address || poi.name,
+      });
+
+      console.log('✅ 标记已添加到地图');
+    } catch (error) {
+      console.error('❌ 添加标记失败:', error);
+      message.error('添加标记失败');
+    }
   };
 
   const handleSave = async () => {
@@ -207,6 +279,19 @@ const EditItineraryItemModal: React.FC<EditItineraryItemModalProps> = ({
 
   const itemType = Form.useWatch('type', form);
 
+  // Modal打开后触发地图resize
+  const handleAfterOpenChange = (open: boolean) => {
+    if (open && mapRef.current) {
+      // 延迟调用resize确保容器尺寸已确定
+      setTimeout(() => {
+        if (mapRef.current) {
+          console.log('🔄 触发地图resize');
+          mapRef.current.resize();
+        }
+      }, 100);
+    }
+  };
+
   return (
     <Modal
       title={isNew ? `添加 Day ${dayNumber} 行程项` : `编辑 Day ${dayNumber} 行程项`}
@@ -216,7 +301,8 @@ const EditItineraryItemModal: React.FC<EditItineraryItemModalProps> = ({
       width={1200}
       okText={isNew ? '添加' : '保存'}
       cancelText="取消"
-      destroyOnClose
+      destroyOnClose={false}
+      afterOpenChange={handleAfterOpenChange}
     >
       <Row gutter={16}>
         {/* 左侧: 表单 */}
