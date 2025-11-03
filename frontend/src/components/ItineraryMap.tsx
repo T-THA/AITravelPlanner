@@ -63,7 +63,11 @@ export interface ItineraryMapRef {
 
   // 添加地点标记和路线
   useEffect(() => {
-    if (!map || !dailyItinerary || dailyItinerary.length === 0) return;
+    if (!map || !dailyItinerary || dailyItinerary.length === 0) {
+      // 如果没有数据，设置加载完成
+      setLoading(false);
+      return;
+    }
 
     const addMarkersAndRoutes = async () => {
       // 清除旧标记和路线
@@ -72,6 +76,8 @@ export interface ItineraryMapRef {
       setMarkers([]);
       setPolylines([]);
       setLoading(true); // 开始加载
+
+      console.log(`📍 开始添加标记，城市: ${city}，行程天数: ${dailyItinerary.length}`);
 
       const newMarkers: any[] = [];
       const newPolylines: any[] = [];
@@ -91,8 +97,27 @@ export interface ItineraryMapRef {
           const item = day.items[itemIndex];
           try {
             // 地理编码：地址 -> 坐标
-            const fullAddress = `${city}${item.location}`;
-            const location = await amapService.geocode(fullAddress);
+            // 尝试多种地址格式
+            let location = null;
+            const addressVariants = [
+              `${city}${item.location}`, // 城市+地点
+              item.location, // 仅地点
+              `${city}市${item.location}`, // 城市+市+地点
+            ];
+
+            for (const address of addressVariants) {
+              try {
+                console.log(`🔍 尝试地理编码: ${address}`);
+                location = await amapService.geocode(address);
+                if (location) {
+                  console.log(`✅ 地理编码成功: ${item.title} - [${location.lng}, ${location.lat}]`);
+                  break;
+                }
+              } catch (err) {
+                console.warn(`地址格式 "${address}" 编码失败，尝试下一个...`);
+                continue;
+              }
+            }
 
             if (location) {
               const position: [number, number] = [location.lng, location.lat];
@@ -148,11 +173,13 @@ export interface ItineraryMapRef {
               newMarkers.push(marker);
               dayPoints.push(position);
               allPoints.push(position);
+            } else {
+              console.warn(`⚠️ 所有地址格式都无法编码: ${item.title} - ${item.location}`);
+              message.warning(`无法定位: ${item.title}`, 2);
             }
           } catch (error) {
-            console.error(`标记地点失败: ${item.title} (${item.location})`, error);
+            console.error(`❌ 标记地点失败: ${item.title} (${item.location})`, error);
             // 降级处理：如果地理编码失败，记录但继续处理下一个地点
-            message.warning(`无法定位: ${item.title}，请检查地址是否正确`, 2);
           }
         }
 
@@ -177,24 +204,34 @@ export interface ItineraryMapRef {
 
       setMarkers(newMarkers);
       setPolylines(newPolylines);
-      setLoading(false); // 加载完成
 
-      // 自动调整视野以包含所有标记，并添加适当的边距
-      if (allPoints.length > 0) {
-        // 使用 setTimeout 确保所有标记已经渲染
+      // 自动调整视野以包含所有标记
+      if (newMarkers.length > 0) {
+        // 使用 setTimeout 确保所有标记已经渲染完成
         setTimeout(() => {
-          map.setFitView(newMarkers, false, [50, 50, 50, 50]); // 上右下左边距各50px
-        }, 100);
+          try {
+            // 使用标记数组来调整视野
+            map.setFitView(newMarkers, false, [80, 80, 80, 80]); // 增加边距到80px
+            console.log(`✅ 地图已调整视野，包含 ${newMarkers.length} 个标记`);
+          } catch (error) {
+            console.error('调整地图视野失败:', error);
+          }
+          setLoading(false); // 在视野调整后设置加载完成
+        }, 200); // 增加延迟确保渲染
       } else {
         // 如果没有标记，尝试定位到城市中心
+        console.warn('未找到任何标记，尝试定位到城市中心:', city);
         try {
           const cityLocation = await amapService.geocode(city);
           if (cityLocation) {
             map.setCenter([cityLocation.lng, cityLocation.lat]);
-            map.setZoom(12);
+            map.setZoom(13);
+            console.log(`✅ 已定位到城市中心: ${city}`);
           }
         } catch (error) {
-          console.warn('无法定位城市中心:', city);
+          console.error('定位城市中心失败:', city, error);
+        } finally {
+          setLoading(false);
         }
       }
     };
