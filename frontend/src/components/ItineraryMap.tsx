@@ -1,18 +1,19 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { message } from 'antd';
 import { amapService } from '../services/amap';
-import type { ItineraryItem } from '../types';
+import type { DailyItinerary, ItineraryItem } from '../types';
 
 interface ItineraryMapProps {
-  items: ItineraryItem[];
+  dailyItinerary: DailyItinerary[]; // 按天分组的行程
   city: string;
   onMarkerClick?: (item: ItineraryItem) => void;
 }
 
-const ItineraryMap: React.FC<ItineraryMapProps> = ({ items, city, onMarkerClick }) => {
+const ItineraryMap: React.FC<ItineraryMapProps> = ({ dailyItinerary, city, onMarkerClick }) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const [map, setMap] = useState<any>(null);
   const [markers, setMarkers] = useState<any[]>([]);
+  const [polylines, setPolylines] = useState<any[]>([]); // 存储路线
   const containerId = useRef<string>(`map-${Date.now()}`);
 
   // 初始化地图
@@ -47,93 +48,123 @@ const ItineraryMap: React.FC<ItineraryMapProps> = ({ items, city, onMarkerClick 
     };
   }, []);
 
-  // 添加地点标记
+  // 添加地点标记和路线
   useEffect(() => {
-    if (!map || !items || items.length === 0) return;
+    if (!map || !dailyItinerary || dailyItinerary.length === 0) return;
 
-    const addMarkers = async () => {
-      // 清除旧标记
+    const addMarkersAndRoutes = async () => {
+      // 清除旧标记和路线
       markers.forEach((marker) => marker.setMap(null));
+      polylines.forEach((polyline) => polyline.setMap(null));
       setMarkers([]);
+      setPolylines([]);
 
       const newMarkers: any[] = [];
-      const points: any[] = [];
+      const newPolylines: any[] = [];
+      const allPoints: any[] = [];
 
-      for (const item of items) {
-        try {
-          // 地理编码：地址 -> 坐标
-          // 组合城市和地点名称
-          const fullAddress = `${city}${item.location}`;
-          const location = await amapService.geocode(fullAddress);
+      // 颜色数组，用于区分不同天的路线
+      const colors = ['#1890ff', '#52c41a', '#fa8c16', '#eb2f96', '#722ed1', '#13c2c2'];
 
-          if (location) {
-            // 根据类型选择图标颜色
-            const color = getMarkerColor(item.type);
+      // 遍历每天的行程
+      for (let dayIndex = 0; dayIndex < dailyItinerary.length; dayIndex++) {
+        const day = dailyItinerary[dayIndex];
+        const dayPoints: [number, number][] = [];
+        const dayColor = colors[dayIndex % colors.length];
 
-            // 创建标记
-            const marker = new window.AMap.Marker({
-              position: [location.lng, location.lat],
-              title: item.title,
-              label: {
-                content: item.title,
-                offset: new window.AMap.Pixel(0, -30),
-              },
-              // 自定义图标（可选）
-              icon: new window.AMap.Icon({
-                size: new window.AMap.Size(25, 34),
-                image: `//a.amap.com/jsapi_demos/static/demo-center/icons/poi-marker-${color}.png`,
-                imageSize: new window.AMap.Size(25, 34),
-              }),
-            });
+        // 遍历当天的每个地点
+        for (const item of day.items) {
+          try {
+            // 地理编码：地址 -> 坐标
+            const fullAddress = `${city}${item.location}`;
+            const location = await amapService.geocode(fullAddress);
 
-            // 点击事件
-            marker.on('click', () => {
-              if (onMarkerClick) {
-                onMarkerClick(item);
-              }
+            if (location) {
+              const position: [number, number] = [location.lng, location.lat];
 
-              // 显示信息窗口
-              const infoWindow = new window.AMap.InfoWindow({
-                content: createInfoWindowContent(item),
-                offset: new window.AMap.Pixel(0, -30),
+              // 创建标记
+              const marker = new window.AMap.Marker({
+                position,
+                title: item.title,
+                label: {
+                  content: `Day ${day.day}: ${item.title}`,
+                  offset: new window.AMap.Pixel(0, -30),
+                },
+                // 使用天数对应的颜色
+                icon: new window.AMap.Icon({
+                  size: new window.AMap.Size(25, 34),
+                  image: `//a.amap.com/jsapi_demos/static/demo-center/icons/poi-marker-${getColorName(dayColor)}.png`,
+                  imageSize: new window.AMap.Size(25, 34),
+                }),
               });
-              infoWindow.open(map, marker.getPosition());
-            });
 
-            marker.setMap(map);
-            newMarkers.push(marker);
-            points.push([location.lng, location.lat]);
+              // 点击事件
+              marker.on('click', () => {
+                if (onMarkerClick) {
+                  onMarkerClick(item);
+                }
+
+                // 显示信息窗口
+                const infoWindow = new window.AMap.InfoWindow({
+                  content: createInfoWindowContent(item, day.day),
+                  offset: new window.AMap.Pixel(0, -30),
+                });
+                infoWindow.open(map, marker.getPosition());
+              });
+
+              marker.setMap(map);
+              newMarkers.push(marker);
+              dayPoints.push(position);
+              allPoints.push(position);
+            }
+          } catch (error) {
+            console.error(`标记地点失败: ${item.title}`, error);
           }
-        } catch (error) {
-          console.error(`标记地点失败: ${item.title}`, error);
+        }
+
+        // 绘制当天的路线（连接各个地点）
+        if (dayPoints.length > 1) {
+          const polyline = new window.AMap.Polyline({
+            path: dayPoints,
+            strokeColor: dayColor,
+            strokeWeight: 4,
+            strokeOpacity: 0.8,
+            lineJoin: 'round',
+            lineCap: 'round',
+          });
+
+          polyline.setMap(map);
+          newPolylines.push(polyline);
         }
       }
 
       setMarkers(newMarkers);
+      setPolylines(newPolylines);
 
-      // 自动调整视野
-      if (points.length > 0) {
+      // 自动调整视野以包含所有标记
+      if (allPoints.length > 0) {
         map.setFitView();
       }
     };
 
-    addMarkers();
-  }, [map, items, city]);
+    addMarkersAndRoutes();
+  }, [map, dailyItinerary, city]);
 
-  // 根据类型获取标记颜色
-  const getMarkerColor = (type: string): string => {
-    const colorMap: Record<string, string> = {
-      attraction: 'red',
-      restaurant: 'orange',
-      hotel: 'blue',
-      transport: 'gray',
-      other: 'default',
+  // 根据颜色代码获取标记图标名称
+  const getColorName = (colorCode: string): string => {
+    const colorNames: Record<string, string> = {
+      '#1890ff': 'blue',
+      '#52c41a': 'green',
+      '#fa8c16': 'orange',
+      '#eb2f96': 'pink',
+      '#722ed1': 'purple',
+      '#13c2c2': 'default',
     };
-    return colorMap[type] || 'default';
+    return colorNames[colorCode] || 'red';
   };
 
   // 创建信息窗口内容
-  const createInfoWindowContent = (item: ItineraryItem): string => {
+  const createInfoWindowContent = (item: ItineraryItem, day: number): string => {
     const typeMap: Record<string, string> = {
       attraction: '景点',
       restaurant: '餐厅',
@@ -144,7 +175,7 @@ const ItineraryMap: React.FC<ItineraryMapProps> = ({ items, city, onMarkerClick 
 
     return `
       <div style="padding: 10px; min-width: 200px;">
-        <h4 style="margin: 0 0 8px 0; font-size: 16px;">${item.title}</h4>
+        <h4 style="margin: 0 0 8px 0; font-size: 16px;">Day ${day}: ${item.title}</h4>
         <p style="margin: 4px 0; color: #666;">
           <span style="background: #1890ff; color: white; padding: 2px 8px; border-radius: 3px; font-size: 12px;">
             ${typeMap[item.type] || item.type}

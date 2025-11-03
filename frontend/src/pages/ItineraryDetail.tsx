@@ -26,7 +26,7 @@ import {
 } from '@ant-design/icons';
 import { tripService } from '../services/trip';
 import ItineraryMap from '../components/ItineraryMap';
-import type { GeneratedItinerary, ItineraryItem } from '../types';
+import type { GeneratedItinerary } from '../types';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -246,9 +246,7 @@ const ItineraryDetail: React.FC = () => {
           <Card title="行程地图" style={{ marginBottom: 16, minHeight: 400 }}>
             <div style={{ height: 400 }}>
               <ItineraryMap
-                items={
-                  itinerary.daily_itinerary?.flatMap((day) => day.items) || []
-                }
+                dailyItinerary={itinerary.daily_itinerary || []}
                 city={trip.destination}
                 onMarkerClick={(item) => {
                   console.log('地点点击:', item);
@@ -257,7 +255,6 @@ const ItineraryDetail: React.FC = () => {
               />
             </div>
           </Card>
-
           {/* 住宿信息 */}
           <Card title="住宿推荐" style={{ marginBottom: 16 }}>
             {itinerary.accommodation.map((acc, index) => (
