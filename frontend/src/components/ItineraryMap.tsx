@@ -173,6 +173,14 @@ export interface ItineraryMapRef {
 
               // 点击事件 - 异步加载POI详情
               marker.on('click', async () => {
+                // 高亮当前标记（立即执行，在异步操作之前）
+                try {
+                  marker.setAnimation('AMAP_ANIMATION_BOUNCE');
+                  setTimeout(() => marker.setAnimation('AMAP_ANIMATION_NONE'), 1000);
+                } catch (err) {
+                  console.warn('动画设置失败:', err);
+                }
+
                 if (onMarkerClick) {
                   onMarkerClick(item, day.day);
                 }
@@ -199,16 +207,14 @@ export interface ItineraryMapRef {
                   // 更新信息窗口内容
                   if (poiDetail) {
                     infoWindow.setContent(createInfoWindowContent(item, day.day, poiDetail, false));
+                  } else {
+                    infoWindow.setContent(createInfoWindowContent(item, day.day, null, false));
                   }
                 } catch (error) {
                   console.warn('⚠️ 加载POI详情失败:', error);
                   // 失败时显示基础信息
                   infoWindow.setContent(createInfoWindowContent(item, day.day, null, false));
                 }
-                
-                // 高亮当前标记
-                marker.setAnimation('AMAP_ANIMATION_BOUNCE');
-                setTimeout(() => marker.setAnimation('AMAP_ANIMATION_NONE'), 1000);
               });
 
               marker.setMap(map);
@@ -401,19 +407,21 @@ export interface ItineraryMapRef {
         </h4>
     `;
 
-    // 添加图片轮播（如果有）
-    if (poiDetail?.photos && poiDetail.photos.length > 0) {
+    // 添加图片（如果有且有效）
+    if (poiDetail?.photos && Array.isArray(poiDetail.photos) && poiDetail.photos.length > 0) {
       const firstPhoto = poiDetail.photos[0];
-      content += `
-        <div style="margin: 10px 0; border-radius: 6px; overflow: hidden;">
-          <img 
-            src="${firstPhoto}" 
-            alt="${item.title}" 
-            style="width: 100%; height: 160px; object-fit: cover; display: block;"
-            onerror="this.style.display='none'"
-          />
-        </div>
-      `;
+      if (firstPhoto && typeof firstPhoto === 'string' && firstPhoto.trim() !== '') {
+        content += `
+          <div style="margin: 10px 0; border-radius: 6px; overflow: hidden; background: #f5f5f5;">
+            <img 
+              src="${firstPhoto}" 
+              alt="${item.title}" 
+              style="width: 100%; height: 160px; object-fit: cover; display: block;"
+              onerror="this.parentElement.style.display='none'"
+            />
+          </div>
+        `;
+      }
     }
 
     content += `
