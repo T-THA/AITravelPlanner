@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, useImperativeHandle, forwardRef } from 'react';
 import { message, Spin } from 'antd';
 import { amapService } from '../services/amap';
-import type { DailyItinerary, ItineraryItem } from '../types';
+import type { DailyItinerary, ItineraryItem, GeneratedItinerary } from '../types';
 
 interface ItineraryMapProps {
   dailyItinerary: DailyItinerary[]; // 按天分组的行程
   city: string;
+  accommodation?: GeneratedItinerary['accommodation']; // 住宿推荐（可选）
   onMarkerClick?: (item: ItineraryItem, day: number) => void;
 }
 
@@ -14,8 +15,8 @@ export interface ItineraryMapRef {
   highlightLocation: (day: number, itemIndex: number) => void;
 }
 
-  const ItineraryMap = forwardRef<ItineraryMapRef, ItineraryMapProps>(
-  ({ dailyItinerary, city, onMarkerClick }, ref) => {
+const ItineraryMap = forwardRef<ItineraryMapRef, ItineraryMapProps>(
+  ({ dailyItinerary, city, accommodation, onMarkerClick }, ref) => {
     const mapContainer = useRef<HTMLDivElement>(null);
     const [map, setMap] = useState<any>(null);
     const [markers, setMarkers] = useState<any[]>([]);
@@ -264,6 +265,125 @@ export interface ItineraryMapRef {
         }
       }
 
+      // 添加酒店标记（如果有住宿信息）
+      if (accommodation && accommodation.length > 0) {
+        console.log(`🏨 开始添加 ${accommodation.length} 个酒店标记`);
+        for (const hotel of accommodation) {
+          try {
+            // 地理编码酒店位置
+            const addressVariants = [
+              `${city}${hotel.location}`,
+              hotel.location,
+              `${city}市${hotel.location}`,
+            ];
+
+            let location = null;
+            for (const address of addressVariants) {
+              try {
+                const geocodePromise = amapService.geocode(address);
+                const timeoutPromise = new Promise<null>((_, reject) => 
+                  setTimeout(() => reject(new Error('Geocode timeout')), 3000)
+                );
+                
+                location = await Promise.race([geocodePromise, timeoutPromise]);
+                if (location) break;
+              } catch (err) {
+                continue;
+              }
+            }
+
+            if (location) {
+              const position: [number, number] = [location.lng, location.lat];
+
+              // 创建酒店标记 - 使用不同样式
+              const hotelMarkerContent = `
+                <div style="position: relative; text-align: center;">
+                  <svg width="36" height="48" viewBox="0 0 36 48" style="filter: drop-shadow(0 3px 6px rgba(255,107,107,0.5));">
+                    <path d="M18 0C9.163 0 2 7.163 2 16c0 12 16 32 16 32s16-20 16-32c0-8.837-7.163-16-16-16z" 
+                          fill="#ff6b6b" 
+                          stroke="#fff" 
+                          stroke-width="2"/>
+                    <text x="18" y="22" text-anchor="middle" fill="#fff" font-size="20" font-weight="bold">🏨</text>
+                  </svg>
+                  <div style="position: absolute; top: -25px; left: 50%; transform: translateX(-50%); 
+                              background: #ff6b6b; color: white; padding: 2px 8px; border-radius: 10px; 
+                              font-size: 11px; font-weight: 600; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+                    Day ${hotel.day}
+                  </div>
+                </div>
+              `;
+
+              const hotelMarker = new window.AMap.Marker({
+                position,
+                title: hotel.hotel_name,
+                content: hotelMarkerContent,
+                offset: new window.AMap.Pixel(-18, -48),
+                zIndex: 200, // 酒店标记在最上层
+                cursor: 'pointer',
+              });
+
+              // 酒店标记点击事件
+              hotelMarker.on('click', () => {
+                try {
+                  const markerDom = hotelMarker.getContentDom();
+                  if (markerDom) {
+                    markerDom.style.animation = 'markerBounce 0.5s ease-out';
+                    setTimeout(() => {
+                      markerDom.style.animation = '';
+                    }, 500);
+                  }
+                } catch (err) {
+                  console.warn('动画设置失败:', err);
+                }
+
+                // 关闭所有InfoWindow
+                infoWindowsRef.current.forEach((iw: any) => iw.close());
+
+                // 显示酒店信息
+                const hotelInfoWindow = new window.AMap.InfoWindow({
+                  content: `
+                    <div style="padding: 12px; min-width: 250px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                      <h4 style="margin: 0 0 10px 0; font-size: 16px; font-weight: 600; color: #262626;">
+                        🏨 Day ${hotel.day} 住宿
+                      </h4>
+                      <h3 style="margin: 0 0 8px 0; font-size: 15px; color: #1890ff;">
+                        ${hotel.hotel_name}
+                      </h3>
+                      <p style="margin: 4px 0; color: #8c8c8c; font-size: 13px;">
+                        📍 ${hotel.location}
+                      </p>
+                      <div style="margin: 8px 0;">
+                        <span style="background: #52c41a; color: white; padding: 2px 8px; border-radius: 10px; font-size: 12px; margin-right: 8px;">
+                          ${hotel.price_range}
+                        </span>
+                        <span style="background: #faad14; color: white; padding: 2px 8px; border-radius: 10px; font-size: 12px;">
+                          ⭐ ${hotel.rating}分
+                        </span>
+                      </div>
+                      <p style="margin: 8px 0 0 0; color: #595959; font-size: 12px; line-height: 1.5;">
+                        💡 ${hotel.booking_tips}
+                      </p>
+                    </div>
+                  `,
+                  offset: new window.AMap.Pixel(0, -30),
+                });
+                hotelInfoWindow.open(map, hotelMarker.getPosition());
+                infoWindowsRef.current.push(hotelInfoWindow);
+              });
+
+              hotelMarker.setMap(map);
+              newMarkers.push(hotelMarker);
+              allPoints.push(position);
+              console.log(`✅ 酒店标记已添加: Day ${hotel.day} - ${hotel.hotel_name}`);
+            } else {
+              console.warn(`⚠️ 跳过无法定位的酒店: Day ${hotel.day} - ${hotel.hotel_name}`);
+            }
+          } catch (error) {
+            console.error(`❌ 添加酒店标记失败: ${hotel.hotel_name}`, error);
+          }
+        }
+      }
+
       setMarkers(newMarkers);
       setPolylines(newPolylines);
 
@@ -299,7 +419,7 @@ export interface ItineraryMapRef {
     };
 
     addMarkersAndRoutes();
-  }, [map, dailyItinerary, city]);
+  }, [map, dailyItinerary, city, accommodation]);
 
   // 暴露给父组件的方法：高亮指定位置
   useImperativeHandle(ref, () => ({

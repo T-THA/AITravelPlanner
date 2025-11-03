@@ -178,18 +178,30 @@ const ItineraryDetail: React.FC = () => {
       </Card>
 
       {/* 主内容区域: 左侧时间线 + 右侧地图 */}
-      <Row gutter={16}>
-        {/* 左侧: 每日行程时间线 */}
-        <Col xs={24} lg={14}>
-          <Card title="每日行程" style={{ minHeight: 600 }}>
-            <Timeline mode="left">
+      <Row gutter={24}>
+        {/* 左侧: 每日行程时间线 - 紧凑布局 */}
+        <Col xs={24} lg={10}>
+          <Card 
+            title="每日行程" 
+            style={{ 
+              height: 'calc(100vh - 280px)', 
+              display: 'flex',
+              flexDirection: 'column'
+            }}
+            bodyStyle={{
+              flex: 1,
+              overflow: 'auto',
+              padding: '12px 16px'
+            }}
+          >
+            <Timeline mode="left" style={{ paddingLeft: 0 }}>
               {itinerary.daily_itinerary.map((day, index) => (
                 <Timeline.Item
                   key={index}
                   label={
-                    <Space direction="vertical" size={0}>
-                      <Text strong>Day {day.day}</Text>
-                      <Text type="secondary" style={{ fontSize: 12 }}>
+                    <Space direction="vertical" size={0} style={{ minWidth: 60 }}>
+                      <Text strong style={{ fontSize: 14 }}>Day {day.day}</Text>
+                      <Text type="secondary" style={{ fontSize: 11 }}>
                         {day.date}
                       </Text>
                     </Space>
@@ -201,10 +213,11 @@ const ItineraryDetail: React.FC = () => {
                     title={
                       <Space>
                         <ClockCircleOutlined />
-                        <Text strong>{day.theme}</Text>
+                        <Text strong style={{ fontSize: 13 }}>{day.theme}</Text>
                       </Space>
                     }
-                    style={{ marginBottom: 16 }}
+                    style={{ marginBottom: 12 }}
+                    bodyStyle={{ padding: '8px 12px' }}
                   >
                     {day.items.map((item, itemIndex) => (
                       <div
@@ -217,7 +230,7 @@ const ItineraryDetail: React.FC = () => {
                           setHighlightedItem({ day: day.day, index: itemIndex });
                         }}
                         style={{
-                          padding: '12px 0',
+                          padding: '8px 0',
                           borderBottom:
                             itemIndex < day.items.length - 1
                               ? '1px solid #f0f0f0'
@@ -229,6 +242,8 @@ const ItineraryDetail: React.FC = () => {
                               ? '#e6f7ff'
                               : 'transparent',
                           transition: 'background-color 0.3s',
+                          borderRadius: '4px',
+                          marginBottom: '4px'
                         }}
                         onMouseEnter={(e) => {
                           if (
@@ -283,127 +298,152 @@ const ItineraryDetail: React.FC = () => {
         </Col>
 
         {/* 右侧: 地图 + 其他信息 */}
-        <Col xs={24} lg={10}>
-          {/* 行程地图 */}
-          <Card title="行程地图" style={{ marginBottom: 16, minHeight: 400 }}>
-            <div style={{ height: 400 }}>
-              <ItineraryMap
-                ref={mapRef}
-                dailyItinerary={itinerary.daily_itinerary || []}
-                city={trip.destination}
-                onMarkerClick={(item, day) => {
-                  console.log('地点点击:', item, 'Day:', day);
-                  // 地图标记点击 → 时间线高亮（需要找到对应的 itemIndex）
-                  const dayData = itinerary.daily_itinerary.find((d) => d.day === day);
-                  if (dayData) {
-                    const itemIndex = dayData.items.findIndex((i) => i.title === item.title);
-                    if (itemIndex !== -1) {
-                      setHighlightedItem({ day, index: itemIndex });
-                      
-                      // 滚动到对应的时间线项
-                      // 使用 setTimeout 确保 DOM 更新后再滚动
-                      setTimeout(() => {
-                        const element = document.querySelector(
-                          `[data-day="${day}"][data-index="${itemIndex}"]`
-                        );
-                        if (element) {
-                          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        }
-                      }, 100);
-                    }
+        <Col xs={24} lg={14}>
+          {/* 行程地图 - 增大尺寸 */}
+          <Card 
+            title="行程地图" 
+            style={{ 
+              marginBottom: 16,
+              height: 'calc(100vh - 280px)'
+            }}
+            bodyStyle={{
+              padding: 12,
+              height: 'calc(100% - 57px)'
+            }}
+          >
+            <ItineraryMap
+              ref={mapRef}
+              dailyItinerary={itinerary.daily_itinerary || []}
+              city={trip.destination}
+              accommodation={itinerary.accommodation} // 传入住宿信息
+              onMarkerClick={(item, day) => {
+                console.log('地点点击:', item, 'Day:', day);
+                // 地图标记点击 → 时间线高亮（需要找到对应的 itemIndex）
+                const dayData = itinerary.daily_itinerary.find((d) => d.day === day);
+                if (dayData) {
+                  const itemIndex = dayData.items.findIndex((i) => i.title === item.title);
+                  if (itemIndex !== -1) {
+                    setHighlightedItem({ day, index: itemIndex });
+                    
+                    // 滚动到对应的时间线项
+                    // 使用 setTimeout 确保 DOM 更新后再滚动
+                    setTimeout(() => {
+                      const element = document.querySelector(
+                        `[data-day="${day}"][data-index="${itemIndex}"]`
+                      );
+                      if (element) {
+                        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      }
+                    }, 100);
                   }
-                }}
-              />
-            </div>
+                }
+              }}
+            />
           </Card>
-          {/* 住宿信息 */}
-          <Card title="住宿推荐" style={{ marginBottom: 16 }}>
+        </Col>
+      </Row>
+
+      {/* 底部信息区域: 住宿、交通、预算 */}
+      <Row gutter={24} style={{ marginTop: 24 }}>
+        {/* 住宿推荐 */}
+        <Col xs={24} md={12} lg={8}>
+          <Card title="🏨 住宿推荐" style={{ marginBottom: 16 }}>
             {itinerary.accommodation.map((acc, index) => (
               <div key={index} style={{ marginBottom: 16 }}>
                 <Space direction="vertical" size={4} style={{ width: '100%' }}>
-                  <Text strong>Day {acc.day}: {acc.hotel_name}</Text>
-                  <Text type="secondary">
+                  <Text strong style={{ fontSize: 14 }}>Day {acc.day}: {acc.hotel_name}</Text>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
                     <EnvironmentOutlined /> {acc.location}
                   </Text>
-                  <Text type="secondary">预算: {acc.price_range} | 评分: {acc.rating}</Text>
-                  <Paragraph type="secondary" style={{ margin: 0 }}>
-                    {acc.booking_tips}
+                  <Space size={16}>
+                    <Tag color="blue">{acc.price_range}</Tag>
+                    <Tag color="gold">⭐ {acc.rating}分</Tag>
+                  </Space>
+                  <Paragraph type="secondary" style={{ margin: 0, fontSize: 12 }}>
+                    💡 {acc.booking_tips}
                   </Paragraph>
                 </Space>
-                {index < itinerary.accommodation.length - 1 && <Divider />}
+                {index < itinerary.accommodation.length - 1 && <Divider style={{ margin: '12px 0' }} />}
               </div>
             ))}
           </Card>
+        </Col>
 
-          {/* 交通方案 */}
-          <Card title="交通方案" style={{ marginBottom: 16 }}>
-            <Space direction="vertical" size={8} style={{ width: '100%' }}>
+        {/* 交通方案 */}
+        <Col xs={24} md={12} lg={8}>
+          <Card title="🚗 交通方案" style={{ marginBottom: 16 }}>
+            <Space direction="vertical" size={12} style={{ width: '100%' }}>
               <div>
-                <Text strong>往返交通</Text>
-                <Paragraph type="secondary" style={{ margin: 0 }}>
-                  方式: {itinerary.transportation.to_destination.method}
-                </Paragraph>
-                {itinerary.transportation.to_destination.details && (
-                  <Paragraph type="secondary" style={{ margin: 0 }}>
+                <Text strong style={{ fontSize: 14 }}>🚄 往返交通</Text>
+                <div style={{ marginTop: 8 }}>
+                  <Tag color="green">{itinerary.transportation.to_destination.method}</Tag>
+                  <Paragraph type="secondary" style={{ margin: '4px 0 0 0', fontSize: 12 }}>
                     {itinerary.transportation.to_destination.details}
                   </Paragraph>
-                )}
-                <Paragraph type="secondary" style={{ margin: 0 }}>
-                  预估费用: ¥{itinerary.transportation.to_destination.estimated_cost}
-                </Paragraph>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    预估费用: <Text strong style={{ color: '#f5222d' }}>¥{itinerary.transportation.to_destination.estimated_cost}</Text>
+                  </Text>
+                </div>
               </div>
               <Divider style={{ margin: '8px 0' }} />
               <div>
-                <Text strong>当地交通</Text>
-                <Paragraph type="secondary" style={{ margin: 0 }}>
-                  推荐: {itinerary.transportation.local_transport.recommendation}
-                </Paragraph>
-                <Paragraph type="secondary" style={{ margin: 0 }}>
-                  每日费用: ¥{itinerary.transportation.local_transport.daily_cost}
-                </Paragraph>
-                <Paragraph type="secondary" style={{ margin: 0 }}>
-                  提示: {itinerary.transportation.local_transport.tips}
-                </Paragraph>
+                <Text strong style={{ fontSize: 14 }}>🚌 当地交通</Text>
+                <div style={{ marginTop: 8 }}>
+                  <Paragraph type="secondary" style={{ margin: 0, fontSize: 12 }}>
+                    推荐: {itinerary.transportation.local_transport.recommendation}
+                  </Paragraph>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    每日预算: <Text strong style={{ color: '#f5222d' }}>¥{itinerary.transportation.local_transport.daily_cost}</Text>
+                  </Text>
+                  <Paragraph type="secondary" style={{ margin: '4px 0 0 0', fontSize: 12 }}>
+                    💡 {itinerary.transportation.local_transport.tips}
+                  </Paragraph>
+                </div>
               </div>
             </Space>
           </Card>
+        </Col>
 
-          {/* 预算分配 */}
-          <Card title="预算分配">
+        {/* 预算分配 */}
+        <Col xs={24} md={24} lg={8}>
+          <Card title="💰 预算分配" style={{ marginBottom: 16 }}>
             <Space direction="vertical" size={8} style={{ width: '100%' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Text>交通: </Text>
-                <Text strong>¥{itinerary.budget_breakdown.transportation}</Text>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Space><Text>🚄 交通</Text></Space>
+                <Text strong style={{ fontSize: 16 }}>¥{itinerary.budget_breakdown.transportation}</Text>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Text>住宿: </Text>
-                <Text strong>¥{itinerary.budget_breakdown.accommodation}</Text>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Space><Text>🏨 住宿</Text></Space>
+                <Text strong style={{ fontSize: 16 }}>¥{itinerary.budget_breakdown.accommodation}</Text>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Text>餐饮: </Text>
-                <Text strong>¥{itinerary.budget_breakdown.food}</Text>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Space><Text>🍜 餐饮</Text></Space>
+                <Text strong style={{ fontSize: 16 }}>¥{itinerary.budget_breakdown.food}</Text>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Text>门票: </Text>
-                <Text strong>¥{itinerary.budget_breakdown.tickets}</Text>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Space><Text>🎫 门票</Text></Space>
+                <Text strong style={{ fontSize: 16 }}>¥{itinerary.budget_breakdown.tickets}</Text>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Text>购物: </Text>
-                <Text strong>¥{itinerary.budget_breakdown.shopping}</Text>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Space><Text>🛍️ 购物</Text></Space>
+                <Text strong style={{ fontSize: 16 }}>¥{itinerary.budget_breakdown.shopping}</Text>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Text>其他: </Text>
-                <Text strong>¥{itinerary.budget_breakdown.other}</Text>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Space><Text>📦 其他</Text></Space>
+                <Text strong style={{ fontSize: 16 }}>¥{itinerary.budget_breakdown.other}</Text>
               </div>
-              <Divider style={{ margin: '8px 0' }} />
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Text strong>总计: </Text>
-                <Text strong style={{ fontSize: 18, color: '#1890ff' }}>
-                  ¥
-                  {Object.values(itinerary.budget_breakdown).reduce(
-                    (sum, val) => sum + val,
-                    0
-                  )}
+              <Divider style={{ margin: '12px 0', borderColor: '#1890ff' }} />
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center',
+                padding: '8px 12px',
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                borderRadius: '8px'
+              }}>
+                <Text strong style={{ color: '#fff', fontSize: 16 }}>💵 总预算</Text>
+                <Text strong style={{ fontSize: 22, color: '#fff' }}>
+                  ¥{Object.values(itinerary.budget_breakdown).reduce((sum, val) => sum + val, 0)}
                 </Text>
               </div>
             </Space>
