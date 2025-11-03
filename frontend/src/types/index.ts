@@ -85,7 +85,7 @@ export interface DailyItinerary {
 
 export interface ItineraryItem {
   time: string;
-  type: 'attraction' | 'restaurant' | 'transport' | 'hotel' | 'other';
+  type: 'attraction' | 'restaurant' | 'transport' | 'hotel' | 'shopping' | 'other';
   title: string;
   description: string;
   location: string;

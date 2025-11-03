@@ -63,8 +63,23 @@ export interface ItineraryMapRef {
 
   // 添加地点标记和路线
   useEffect(() => {
-    if (!map || !dailyItinerary || dailyItinerary.length === 0) {
-      // 如果没有数据，设置加载完成
+    console.log('🔍 ItineraryMap useEffect 触发');
+    console.log('📦 参数检查:', {
+      hasMap: !!map,
+      hasDailyItinerary: !!dailyItinerary,
+      dailyItineraryLength: dailyItinerary?.length || 0,
+      city: city,
+      dailyItineraryData: dailyItinerary
+    });
+
+    if (!map) {
+      console.warn('⚠️ 地图实例未初始化');
+      setLoading(false);
+      return;
+    }
+
+    if (!dailyItinerary || dailyItinerary.length === 0) {
+      console.warn('⚠️ 没有行程数据');
       setLoading(false);
       return;
     }
@@ -89,12 +104,14 @@ export interface ItineraryMapRef {
       // 遍历每天的行程
       for (let dayIndex = 0; dayIndex < dailyItinerary.length; dayIndex++) {
         const day = dailyItinerary[dayIndex];
+        console.log(`📅 处理 Day ${day.day}，包含 ${day.items.length} 个地点`);
         const dayPoints: [number, number][] = [];
         const dayColor = colors[dayIndex % colors.length];
 
         // 遍历当天的每个地点
         for (let itemIndex = 0; itemIndex < day.items.length; itemIndex++) {
           const item = day.items[itemIndex];
+          console.log(`  🔸 处理地点 ${itemIndex + 1}/${day.items.length}: ${item.title} (${item.type})`);
           try {
             // 地理编码：地址 -> 坐标
             // 尝试多种地址格式
