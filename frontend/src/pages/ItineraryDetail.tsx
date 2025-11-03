@@ -25,7 +25,8 @@ import {
   ShareAltOutlined,
 } from '@ant-design/icons';
 import { tripService } from '../services/trip';
-import type { GeneratedItinerary } from '../types';
+import ItineraryMap from '../components/ItineraryMap';
+import type { GeneratedItinerary, ItineraryItem } from '../types';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -239,20 +240,21 @@ const ItineraryDetail: React.FC = () => {
           </Card>
         </Col>
 
-        {/* 右侧: 地图占位 + 其他信息 */}
+        {/* 右侧: 地图 + 其他信息 */}
         <Col xs={24} lg={10}>
-          {/* 地图占位 */}
+          {/* 行程地图 */}
           <Card title="行程地图" style={{ marginBottom: 16, minHeight: 400 }}>
-            <div
-              style={{
-                height: 350,
-                background: '#f5f5f5',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Text type="secondary">[地图组件待集成]</Text>
+            <div style={{ height: 400 }}>
+              <ItineraryMap
+                items={
+                  itinerary.daily_itinerary?.flatMap((day) => day.items) || []
+                }
+                city={trip.destination}
+                onMarkerClick={(item) => {
+                  console.log('地点点击:', item);
+                  // 可以在这里实现与时间线的联动
+                }}
+              />
             </div>
           </Card>
 
