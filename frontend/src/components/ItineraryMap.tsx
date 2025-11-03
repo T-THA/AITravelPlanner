@@ -122,16 +122,23 @@ export interface ItineraryMapRef {
               `${city}市${item.location}`, // 城市+市+地点
             ];
 
+            // 为每个地址尝试添加超时机制
             for (const address of addressVariants) {
               try {
                 console.log(`🔍 尝试地理编码: ${address}`);
-                location = await amapService.geocode(address);
+                // 添加超时Promise
+                const geocodePromise = amapService.geocode(address);
+                const timeoutPromise = new Promise<null>((_, reject) => 
+                  setTimeout(() => reject(new Error('Geocode timeout')), 3000)
+                );
+                
+                location = await Promise.race([geocodePromise, timeoutPromise]);
                 if (location) {
                   console.log(`✅ 地理编码成功: ${item.title} - [${location.lng}, ${location.lat}]`);
                   break;
                 }
               } catch (err) {
-                console.warn(`地址格式 "${address}" 编码失败，尝试下一个...`);
+                console.warn(`❌ 地址格式 "${address}" 编码失败:`, err instanceof Error ? err.message : '未知错误');
                 continue;
               }
             }
@@ -190,9 +197,9 @@ export interface ItineraryMapRef {
               newMarkers.push(marker);
               dayPoints.push(position);
               allPoints.push(position);
+              console.log(`✅ 标记已添加: Day ${day.day} - ${item.title}`);
             } else {
-              console.warn(`⚠️ 所有地址格式都无法编码: ${item.title} - ${item.location}`);
-              message.warning(`无法定位: ${item.title}`, 2);
+              console.warn(`⚠️ 跳过无法定位的地点: Day ${day.day} - ${item.title} (${item.location})`);
             }
           } catch (error) {
             console.error(`❌ 标记地点失败: ${item.title} (${item.location})`, error);
