@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import type { TripRequest } from '../types';
+import type { TripRequest, GeneratedItinerary } from '../types';
 
 export const tripService = {
   /**
@@ -186,6 +186,37 @@ export const tripService = {
     } catch (error) {
       console.error('Delete trip exception:', error);
       return { error: error as Error };
+    }
+  },
+
+  /**
+   * 更新旅行计划的 AI 生成行程
+   * @param tripId 旅行计划 ID
+   * @param itinerary 生成的行程数据
+   */
+  async updateTripItinerary(tripId: string, itinerary: GeneratedItinerary) {
+    try {
+      // 更新行程数据和状态
+      const { data, error } = await supabase
+        .from('trips')
+        .update({
+          itinerary: itinerary as any, // JSONB 类型
+          status: 'generated',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', tripId)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Update trip itinerary error:', error);
+        return { data: null, error };
+      }
+
+      return { data, error: null };
+    } catch (error) {
+      console.error('Update trip itinerary exception:', error);
+      return { data: null, error: error as Error };
     }
   },
 };

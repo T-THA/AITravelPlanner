@@ -25,7 +25,9 @@ import {
 import { useNavigate } from 'react-router-dom';
 import type { TripRequest, VoiceParsedData } from '../types';
 import { tripService } from '../services/trip';
+import { llmService } from '../services/llm';
 import VoiceInput from '../components/VoiceInput';
+import ItineraryGenerating from '../components/ItineraryGenerating';
 import dayjs from 'dayjs';
 
 const { TextArea } = Input;
@@ -55,6 +57,7 @@ const CreateItinerary: React.FC = () => {
   const navigate = useNavigate();
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
+  const [generating, setGenerating] = useState(false); // 行程生成中状态
 
   // 草稿自动保存
   useEffect(() => {
@@ -115,24 +118,68 @@ const CreateItinerary: React.FC = () => {
 
       console.log('Trip Request:', request);
 
-      // 保存到数据库
-      const { error } = await tripService.createTrip(request);
+      // 第一步：保存需求到数据库
+      const { data: trip, error: createError } = await tripService.createTrip(request);
       
-      if (error) {
-        message.error('提交失败: ' + error.message);
+      if (createError || !trip) {
+        message.error('提交失败: ' + (createError?.message || '未知错误'));
         setLoading(false);
         return;
       }
 
-      message.success('需求提交成功!正在生成行程...');
+      console.log('Trip created:', trip);
+      setLoading(false);
+
+      // 第二步：显示生成进度模态框
+      setGenerating(true);
       
-      // 清除草稿
-      localStorage.removeItem('itinerary_draft');
-      
-      // 跳转到行程列表页
-      setTimeout(() => {
-        navigate('/itineraries');
-      }, 1000);
+      try {
+        // 第三步：调用 LLM 生成行程
+        console.log('开始生成行程...');
+        const { data: itinerary, error: generateError } = await llmService.generateItinerary(request);
+        
+        if (generateError || !itinerary) {
+          setGenerating(false);
+          message.error('行程生成失败: ' + (generateError?.message || '未知错误'));
+          // 即使生成失败，需求已保存，可以稍后重试
+          message.info('您的需求已保存为草稿，可以稍后重新生成');
+          setTimeout(() => {
+            navigate('/itineraries');
+          }, 1500);
+          return;
+        }
+
+        console.log('行程生成成功:', itinerary);
+
+        // 第四步：保存生成的行程到数据库
+        const { error: updateError } = await tripService.updateTripItinerary(trip.id, itinerary);
+        
+        if (updateError) {
+          setGenerating(false);
+          message.error('行程保存失败: ' + updateError.message);
+          return;
+        }
+
+        // 第五步：成功，跳转到行程详情页
+        setGenerating(false);
+        message.success('行程生成成功！');
+        
+        // 清除草稿
+        localStorage.removeItem('itinerary_draft');
+        
+        // 跳转到行程详情页
+        setTimeout(() => {
+          navigate(`/itineraries/${trip.id}`);
+        }, 500);
+
+      } catch (generateException) {
+        console.error('生成行程异常:', generateException);
+        setGenerating(false);
+        message.error('行程生成出现异常，请稍后重试');
+        setTimeout(() => {
+          navigate('/itineraries');
+        }, 1500);
+      }
       
     } catch (error) {
       console.error('Submit error:', error);
@@ -434,6 +481,17 @@ const CreateItinerary: React.FC = () => {
           </Text>
         </div>
       </Card>
+
+      {/* 行程生成进度模态框 */}
+      <ItineraryGenerating
+        open={generating}
+        onCancel={() => {
+          // 取消生成（实际上 LLM 请求已发出，无法真正取消）
+          setGenerating(false);
+          message.warning('行程正在后台生成，请稍后在行程列表中查看');
+          navigate('/itineraries');
+        }}
+      />
     </div>
   );
 };
