@@ -17,6 +17,7 @@ const ResetPasswordPage = React.lazy(() => import('./pages/ResetPassword'));
 const DashboardPage = React.lazy(() => import('./pages/Dashboard'));
 const ItineraryListPage = React.lazy(() => import('./pages/ItineraryList'));
 const CreateItineraryPage = React.lazy(() => import('./pages/CreateItinerary'));
+const ItineraryDetailPage = React.lazy(() => import('./pages/ItineraryDetail'));
 const ExpenseManagementPage = React.lazy(() => import('./pages/ExpenseManagement'));
 const ProfilePage = React.lazy(() => import('./pages/Profile'));
 const VoiceTestPage = React.lazy(() => import('./pages/VoiceTest'));
@@ -118,6 +119,7 @@ function App() {
             >
               <Route index element={<ItineraryListPage />} />
               <Route path="create" element={<CreateItineraryPage />} />
+              <Route path=":id" element={<ItineraryDetailPage />} />
             </Route>
 
             <Route
