@@ -1,4 +1,5 @@
-import type { VoiceParsedData } from '../types';
+import type { VoiceParsedData, TripRequest, GeneratedItinerary } from '../types';
+import { generateItineraryPrompt } from '../prompts/itinerary';
 
 // 获取环境变量
 const API_KEY = import.meta.env.VITE_ALIYUN_API_KEY;
@@ -229,11 +230,94 @@ export const llmService = {
   },
 
   /**
-   * 生成行程计划（后续实现）
+   * 生成行程计划
    */
-  async generateItinerary(_tripRequest: any): Promise<{ data: any | null; error: Error | null }> {
-    // TODO: 实现行程生成功能
-    return { data: null, error: new Error('功能尚未实现') };
+  async generateItinerary(tripRequest: TripRequest): Promise<{ data: GeneratedItinerary | null; error: Error | null }> {
+    try {
+      if (!API_KEY) {
+        return { data: null, error: new Error('阿里云 API Key 未配置') };
+      }
+
+      // 获取当前日期
+      const currentDate = new Date().toLocaleDateString('zh-CN', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        weekday: 'long'
+      });
+
+      // 生成 Prompt
+      const prompt = generateItineraryPrompt(tripRequest, currentDate);
+
+      console.log('生成行程 Prompt:', prompt.substring(0, 500) + '...');
+
+      // 调用 API
+      const response = await fetch(`${BASE_URL}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: MODEL_NAME,
+          messages: [
+            {
+              role: 'system',
+              content: '你是一位专业的旅行规划师，擅长根据用户需求定制个性化旅行方案。你的回复必须严格遵守 JSON 格式。',
+            },
+            {
+              role: 'user',
+              content: prompt,
+            },
+          ],
+          temperature: 0.7,  // 稍高一些以增加创造性
+          max_tokens: 4000,  // 足够长的输出
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('LLM API Error:', errorText);
+        return { data: null, error: new Error(`API 请求失败: ${response.status}`) };
+      }
+
+      const result = await response.json();
+      const content = result.choices[0]?.message?.content;
+
+      if (!content) {
+        return { data: null, error: new Error('API 返回内容为空') };
+      }
+
+      console.log('LLM 返回内容:', content.substring(0, 500) + '...');
+
+      // 提取 JSON 内容（处理可能包含 ```json 标记的情况）
+      let jsonText = content;
+      const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/);
+      if (jsonMatch) {
+        jsonText = jsonMatch[1];
+      } else {
+        // 尝试直接查找 JSON 对象
+        const jsonObjectMatch = content.match(/\{[\s\S]*\}/);
+        if (jsonObjectMatch) {
+          jsonText = jsonObjectMatch[0];
+        }
+      }
+
+      // 解析 JSON
+      const itineraryData = JSON.parse(jsonText.trim()) as GeneratedItinerary;
+
+      // 验证必要字段
+      if (!itineraryData.trip_title || !itineraryData.daily_itinerary || itineraryData.daily_itinerary.length === 0) {
+        return { data: null, error: new Error('生成的行程数据不完整') };
+      }
+
+      console.log('✅ 行程生成成功:', itineraryData.trip_title);
+
+      return { data: itineraryData, error: null };
+    } catch (error) {
+      console.error('Generate itinerary error:', error);
+      return { data: null, error: error as Error };
+    }
   },
 
   /**

@@ -60,6 +60,90 @@ export interface Activity {
   };
 }
 
+// LLM 生成的完整行程数据结构
+export interface GeneratedItinerary {
+  trip_title: string;
+  summary: string;
+  highlights: string[];
+  total_days: number;
+  daily_itinerary: DailyItinerary[];
+  accommodation: AccommodationPlan[];
+  transportation: TransportationPlan;
+  budget_breakdown: BudgetBreakdown;
+  total_estimated_cost: number;
+  packing_list: string[];
+  travel_tips: string[];
+  emergency_contacts: EmergencyContacts;
+}
+
+export interface DailyItinerary {
+  day: number;
+  date: string;
+  theme: string;
+  items: ItineraryItem[];
+}
+
+export interface ItineraryItem {
+  time: string;
+  type: 'attraction' | 'restaurant' | 'transport' | 'hotel' | 'other';
+  title: string;
+  description: string;
+  location: string;
+  duration?: string;
+  cost: number;
+  // attraction specific
+  ticket_info?: string;
+  opening_hours?: string;
+  tips?: string;
+  // restaurant specific
+  cuisine?: string;
+  recommended_dishes?: string[];
+}
+
+export interface AccommodationPlan {
+  day: number;
+  hotel_name: string;
+  location: string;
+  price_range: string;
+  rating: string;
+  features: string[];
+  booking_tips: string;
+}
+
+export interface TransportationPlan {
+  to_destination: TransportDetail;
+  local_transport: LocalTransportDetail;
+  return: TransportDetail;
+}
+
+export interface TransportDetail {
+  method: string;
+  details?: string;
+  estimated_cost: number;
+  duration?: string;
+}
+
+export interface LocalTransportDetail {
+  recommendation: string;
+  daily_cost: number;
+  tips: string;
+}
+
+export interface BudgetBreakdown {
+  transportation: number;
+  accommodation: number;
+  food: number;
+  tickets: number;
+  shopping: number;
+  other: number;
+}
+
+export interface EmergencyContacts {
+  police: string;
+  hospital: string;
+  tourist_hotline: string;
+}
+
 // 费用记录类型
 export interface Expense {
   id: string;
