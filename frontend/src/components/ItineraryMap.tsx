@@ -146,22 +146,30 @@ export interface ItineraryMapRef {
             if (location) {
               const position: [number, number] = [location.lng, location.lat];
 
-              // 创建标记 - 使用更醒目的样式
+              // 创建标记 - 使用SVG自定义图标（支持动画）
+              const markerContent = `
+                <div style="position: relative; text-align: center;">
+                  <svg width="32" height="44" viewBox="0 0 32 44" style="filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
+                    <path d="M16 0C7.163 0 0 7.163 0 16c0 11 16 28 16 28s16-17 16-28c0-8.837-7.163-16-16-16z" 
+                          fill="${dayColor}" 
+                          stroke="#fff" 
+                          stroke-width="2"/>
+                    <circle cx="16" cy="16" r="6" fill="#fff"/>
+                    <text x="16" y="20" text-anchor="middle" fill="${dayColor}" font-size="10" font-weight="bold">${day.day}</text>
+                  </svg>
+                  <div style="position: absolute; top: -25px; left: 50%; transform: translateX(-50%); 
+                              background: ${dayColor}; color: white; padding: 2px 8px; border-radius: 10px; 
+                              font-size: 11px; font-weight: 600; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+                    Day ${day.day}
+                  </div>
+                </div>
+              `;
+
               const marker = new window.AMap.Marker({
                 position,
                 title: item.title,
-                label: {
-                  content: `Day ${day.day}`,
-                  offset: new window.AMap.Pixel(0, -40),
-                  direction: 'top',
-                },
-                // 使用更大更醒目的标记
-                icon: new window.AMap.Icon({
-                  size: new window.AMap.Size(32, 44),
-                  image: `//a.amap.com/jsapi_demos/static/demo-center/icons/poi-marker-${getColorName(dayColor)}.png`,
-                  imageSize: new window.AMap.Size(32, 44),
-                  imageOffset: new window.AMap.Pixel(0, 0),
-                }),
+                content: markerContent, // 使用HTML内容而非icon
+                offset: new window.AMap.Pixel(-16, -44), // 调整偏移使图标底部对准坐标点
                 // 设置标记可见层级
                 zIndex: 100 + dayIndex * 10 + itemIndex,
                 // 鼠标悬停提示
@@ -173,10 +181,16 @@ export interface ItineraryMapRef {
 
               // 点击事件 - 异步加载POI详情
               marker.on('click', async () => {
-                // 高亮当前标记（立即执行，在异步操作之前）
+                // 高亮当前标记 - 使用DOM动画（因为使用自定义content）
                 try {
-                  marker.setAnimation('AMAP_ANIMATION_BOUNCE');
-                  setTimeout(() => marker.setAnimation('AMAP_ANIMATION_NONE'), 1000);
+                  const markerDom = marker.getContentDom();
+                  if (markerDom) {
+                    // 添加弹跳动画
+                    markerDom.style.animation = 'markerBounce 0.5s ease-out';
+                    setTimeout(() => {
+                      markerDom.style.animation = '';
+                    }, 500);
+                  }
                 } catch (err) {
                   console.warn('动画设置失败:', err);
                 }
@@ -314,9 +328,18 @@ export interface ItineraryMapRef {
       map.setCenter(position);
       map.setZoom(16);
 
-      // 高亮标记（跳动动画）
-      targetMarker.setAnimation('AMAP_ANIMATION_BOUNCE');
-      setTimeout(() => targetMarker.setAnimation('AMAP_ANIMATION_NONE'), 1500);
+      // 高亮标记（使用DOM动画）
+      try {
+        const markerDom = targetMarker.getContentDom();
+        if (markerDom) {
+          markerDom.style.animation = 'markerBounce 0.5s ease-out';
+          setTimeout(() => {
+            markerDom.style.animation = '';
+          }, 500);
+        }
+      } catch (err) {
+        console.warn('动画设置失败:', err);
+      }
 
       // 打开 InfoWindow（异步加载POI详情）
       const data = markerItemMap.current.get(targetMarker);
@@ -351,19 +374,6 @@ export interface ItineraryMapRef {
       }
     },
   }));
-
-  // 根据颜色代码获取标记图标名称
-  const getColorName = (colorCode: string): string => {
-    const colorNames: Record<string, string> = {
-      '#1890ff': 'blue',
-      '#52c41a': 'green',
-      '#fa8c16': 'orange',
-      '#eb2f96': 'pink',
-      '#722ed1': 'purple',
-      '#13c2c2': 'default',
-    };
-    return colorNames[colorCode] || 'red';
-  };
 
   // 创建信息窗口内容
   const createInfoWindowContent = (
@@ -546,6 +556,24 @@ export interface ItineraryMapRef {
           <Spin tip="加载地图中..." />
         </div>
       )}
+      
+      {/* 添加标记弹跳动画的CSS */}
+      <style>{`
+        @keyframes markerBounce {
+          0%, 100% {
+            transform: translateY(0) scale(1);
+          }
+          25% {
+            transform: translateY(-10px) scale(1.1);
+          }
+          50% {
+            transform: translateY(-5px) scale(1.05);
+          }
+          75% {
+            transform: translateY(-2px) scale(1.02);
+          }
+        }
+      `}</style>
     </div>
   );
 });
