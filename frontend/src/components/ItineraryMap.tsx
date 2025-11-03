@@ -399,7 +399,24 @@ export interface ItineraryMapRef {
         <h4 style="margin: 0 0 10px 0; font-size: 16px; font-weight: 600; color: #262626;">
           Day ${day}: ${item.title}
         </h4>
-        
+    `;
+
+    // 添加图片轮播（如果有）
+    if (poiDetail?.photos && poiDetail.photos.length > 0) {
+      const firstPhoto = poiDetail.photos[0];
+      content += `
+        <div style="margin: 10px 0; border-radius: 6px; overflow: hidden;">
+          <img 
+            src="${firstPhoto}" 
+            alt="${item.title}" 
+            style="width: 100%; height: 160px; object-fit: cover; display: block;"
+            onerror="this.style.display='none'"
+          />
+        </div>
+      `;
+    }
+
+    content += `
         <div style="margin: 8px 0;">
           <span style="background: #1890ff; color: white; padding: 2px 10px; border-radius: 12px; font-size: 12px; margin-right: 8px;">
             ${typeMap[item.type] || item.type}
