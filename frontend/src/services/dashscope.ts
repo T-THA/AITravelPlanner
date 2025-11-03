@@ -270,63 +270,115 @@ ${params.specialNeeds ? `特殊需求：${params.specialNeeds}` : ''}
   }
 
   /**
-   * 预算分析
+   * AI 预算分析
    */
   async analyzeBudget(params: {
+    userBudget: number;
+    budgetBreakdown: {
+      transportation: number;
+      accommodation: number;
+      food: number;
+      tickets: number;
+      shopping: number;
+      other: number;
+    };
     destination: string;
     days: number;
-    currentBudget: number;
-    expenses: Array<{ category: string; amount: number }>;
+    travelers: number;
   }): Promise<any> {
-    const systemPrompt = `你是一位财务分析师，擅长旅行预算规划和费用分析。`;
+    const { userBudget, budgetBreakdown, destination, days, travelers } = params;
+    
+    const totalEstimated = Object.values(budgetBreakdown).reduce((sum, val) => sum + val, 0);
+    const difference = userBudget - totalEstimated;
+    const differencePercentage = ((difference / userBudget) * 100).toFixed(1);
 
-    const totalExpense = params.expenses.reduce((sum, e) => sum + e.amount, 0);
-    const remaining = params.currentBudget - totalExpense;
+    const systemPrompt = `你是一位专业的旅行预算分析师，擅长帮助用户合理规划旅行支出。
+你需要分析用户的预算和行程费用，提供专业的建议。
+
+分析要点：
+1. 对比用户预算与预计费用
+2. 分析各项支出的合理性
+3. 如果超预算，提供节省建议
+4. 如果有剩余预算，提供优化建议
+5. 识别潜在的隐性费用
+
+输出格式必须是严格的 JSON，包含以下字段：
+{
+  "total_budget": 用户总预算(数字),
+  "estimated_total": 预计总费用(数字),
+  "budget_status": "within" 或 "close" 或 "exceed",
+  "difference": 预算差额(数字,正数表示节省),
+  "difference_percentage": 差额百分比(数字),
+  "breakdown_analysis": {
+    "transportation": {
+      "budgeted": 交通费用(数字),
+      "percentage": 占比(数字),
+      "status": "reasonable" 或 "high" 或 "low",
+      "comment": "AI评价(字符串)"
+    },
+    "accommodation": { ... },
+    "food": { ... },
+    "tickets": { ... },
+    "shopping": { ... },
+    "other": { ... }
+  },
+  "saving_suggestions": [
+    {
+      "category": "类别(字符串)",
+      "suggestion": "建议(字符串)",
+      "potential_saving": 可能节省金额(数字),
+      "priority": "high" 或 "medium" 或 "low"
+    }
+  ],
+  "warnings": ["警告信息数组"],
+  "summary": "总体分析总结(字符串)"
+}`;
 
     const userPrompt = `请分析以下旅行预算：
 
-目的地：${params.destination}
-旅行天数：${params.days}天
-总预算：${params.currentBudget}元
-已花费：${totalExpense}元
-剩余：${remaining}元
+**旅行信息**：
+- 目的地：${destination}
+- 天数：${days}天
+- 人数：${travelers}人
+- 用户预算：¥${userBudget}
 
-费用明细：
-${params.expenses.map(e => `- ${e.category}: ${e.amount}元`).join('\n')}
+**预计费用明细**：
+- 交通：¥${budgetBreakdown.transportation}
+- 住宿：¥${budgetBreakdown.accommodation}
+- 餐饮：¥${budgetBreakdown.food}
+- 门票：¥${budgetBreakdown.tickets}
+- 购物：¥${budgetBreakdown.shopping}
+- 其他：¥${budgetBreakdown.other}
+- **总计：¥${totalEstimated}**
 
-请提供：
-1. 预算使用情况分析
-2. 各类别费用占比是否合理
-3. 是否有超支风险
-4. 节省建议（如果预算紧张）
-5. 剩余预算使用建议
+**当前状况**：
+${difference >= 0 ? 
+  `预算充足，剩余 ¥${difference} (${differencePercentage}%)` : 
+  `预算超支 ¥${Math.abs(difference)} (${Math.abs(parseFloat(differencePercentage))}%)`
+}
 
-以 JSON 格式输出：
-{
-  "status": "正常/警告/超支",
-  "analysis": "整体分析",
-  "suggestions": ["建议1", "建议2"],
-  "breakdown_analysis": {
-    "transportation": "分析",
-    "accommodation": "分析",
-    "food": "分析"
-  }
-}`;
+请提供详细的预算分析和建议。直接返回 JSON，不要包含任何其他文字说明。`;
 
-    const content = await this.chat(userPrompt, systemPrompt);
-    
-    const jsonMatch = content.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/) || 
-                      content.match(/(\{[\s\S]*\})/);
-    
-    if (jsonMatch && jsonMatch[1]) {
-      try {
-        return JSON.parse(jsonMatch[1]);
-      } catch (error) {
-        console.error('JSON 解析失败:', error);
-        throw new Error('预算分析数据格式异常，请重试');
+    try {
+      const response = await this.chat(userPrompt, systemPrompt);
+      
+      // 尝试提取 JSON
+      let jsonMatch = response.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/);
+      if (!jsonMatch) {
+        jsonMatch = response.match(/(\{[\s\S]*\})/);
       }
-    } else {
-      throw new Error('未能提取有效的预算分析数据');
+      
+      if (jsonMatch && jsonMatch[1]) {
+        const analysisData = JSON.parse(jsonMatch[1]);
+        console.log('✅ 预算分析成功:', analysisData);
+        return analysisData;
+      } else {
+        console.error('❌ 无法提取 JSON:', response);
+        throw new Error('AI 返回格式异常');
+      }
+    } catch (error: any) {
+      console.error('预算分析失败:', error);
+      throw new Error(error.message || '预算分析失败，请重试');
     }
   }
 

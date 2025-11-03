@@ -180,6 +180,40 @@ export interface VoiceRecognitionResult {
   confidence: number;
 }
 
+// 预算分析类型
+export interface BudgetAnalysis {
+  total_budget: number;
+  estimated_total: number;
+  budget_status: 'within' | 'close' | 'exceed';  // 预算状态：在预算内/接近预算/超预算
+  difference: number;  // 差额（正数表示节省，负数表示超支）
+  difference_percentage: number;  // 差额百分比
+  breakdown_analysis: {
+    transportation: CategoryAnalysis;
+    accommodation: CategoryAnalysis;
+    food: CategoryAnalysis;
+    tickets: CategoryAnalysis;
+    shopping: CategoryAnalysis;
+    other: CategoryAnalysis;
+  };
+  saving_suggestions: SavingSuggestion[];
+  warnings: string[];
+  summary: string;
+}
+
+export interface CategoryAnalysis {
+  budgeted: number;
+  percentage: number;  // 占总预算的百分比
+  status: 'reasonable' | 'high' | 'low';  // 合理/偏高/偏低
+  comment: string;  // AI评价
+}
+
+export interface SavingSuggestion {
+  category: string;
+  suggestion: string;
+  potential_saving: number;
+  priority: 'high' | 'medium' | 'low';
+}
+
 // 行程创建请求类型
 export interface TripRequest {
   destination: string[];           // 目的地列表（支持多个城市）
