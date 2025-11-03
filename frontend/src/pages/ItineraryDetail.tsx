@@ -13,6 +13,8 @@ import {
   Row,
   Col,
   Divider,
+  Popconfirm,
+  Tooltip,
 } from 'antd';
 import {
   EnvironmentOutlined,
@@ -23,11 +25,15 @@ import {
   ArrowLeftOutlined,
   EditOutlined,
   ShareAltOutlined,
+  DeleteOutlined,
+  PlusOutlined,
+  SaveOutlined,
 } from '@ant-design/icons';
 import { tripService } from '../services/trip';
 import ItineraryMap from '../components/ItineraryMap';
+import EditItineraryItemModal from '../components/EditItineraryItemModal';
 import type { ItineraryMapRef } from '../components/ItineraryMap';
-import type { GeneratedItinerary } from '../types';
+import type { GeneratedItinerary, ItineraryItem } from '../types';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -35,6 +41,7 @@ const ItineraryDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [trip, setTrip] = useState<any>(null);
   const [itinerary, setItinerary] = useState<GeneratedItinerary | null>(null);
   const mapRef = useRef<ItineraryMapRef>(null);
@@ -44,6 +51,13 @@ const ItineraryDetail: React.FC = () => {
     day: number;
     index: number;
   } | null>(null);
+
+  // 编辑功能的状态
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editingItem, setEditingItem] = useState<ItineraryItem | null>(null);
+  const [editingDay, setEditingDay] = useState<number>(1);
+  const [editingIndex, setEditingIndex] = useState<number>(-1);
+  const [isNewItem, setIsNewItem] = useState(false);
 
   // 加载行程数据
   useEffect(() => {
@@ -76,6 +90,103 @@ const ItineraryDetail: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // 保存行程数据到数据库
+  const saveItinerary = async (updatedItinerary: GeneratedItinerary) => {
+    setSaving(true);
+    try {
+      const { error } = await tripService.updateTripItinerary(id!, updatedItinerary);
+      if (error) {
+        message.error('保存失败: ' + error.message);
+        return false;
+      }
+      message.success('保存成功');
+      return true;
+    } catch (error) {
+      console.error('Save itinerary error:', error);
+      message.error('保存失败');
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // 打开添加行程项的Modal
+  const handleAddItem = (day: number) => {
+    setIsNewItem(true);
+    setEditingDay(day);
+    setEditingIndex(-1);
+    setEditingItem({
+      time: '',
+      type: 'attraction',
+      title: '',
+      location: '',
+      description: '',
+      cost: 0,
+    } as ItineraryItem);
+    setEditModalVisible(true);
+  };
+
+  // 打开编辑行程项的Modal
+  const handleEditItem = (day: number, index: number, item: ItineraryItem) => {
+    setIsNewItem(false);
+    setEditingDay(day);
+    setEditingIndex(index);
+    setEditingItem(item);
+    setEditModalVisible(true);
+  };
+
+  // 保存编辑/新增的行程项
+  const handleSaveItem = async (updatedItem: ItineraryItem) => {
+    if (!itinerary) return;
+
+    const newItinerary = { ...itinerary };
+    const dayIndex = newItinerary.daily_itinerary.findIndex((d) => d.day === editingDay);
+
+    if (dayIndex === -1) {
+      message.error('无法找到对应的日期');
+      return;
+    }
+
+    if (isNewItem) {
+      // 添加新项
+      newItinerary.daily_itinerary[dayIndex].items.push(updatedItem);
+    } else {
+      // 更新现有项
+      if (editingIndex >= 0 && editingIndex < newItinerary.daily_itinerary[dayIndex].items.length) {
+        newItinerary.daily_itinerary[dayIndex].items[editingIndex] = updatedItem;
+      }
+    }
+
+    // 更新本地状态
+    setItinerary(newItinerary);
+    setEditModalVisible(false);
+
+    // 保存到数据库
+    await saveItinerary(newItinerary);
+  };
+
+  // 删除行程项
+  const handleDeleteItem = async (day: number, index: number) => {
+    if (!itinerary) return;
+
+    const newItinerary = { ...itinerary };
+    const dayIndex = newItinerary.daily_itinerary.findIndex((d) => d.day === day);
+
+    if (dayIndex === -1) {
+      message.error('无法找到对应的日期');
+      return;
+    }
+
+    // 删除项
+    newItinerary.daily_itinerary[dayIndex].items.splice(index, 1);
+
+    // 更新本地状态
+    setItinerary(newItinerary);
+
+    // 保存到数据库
+    await saveItinerary(newItinerary);
   };
 
   if (loading) {
@@ -169,8 +280,13 @@ const ItineraryDetail: React.FC = () => {
 
           {/* 操作按钮 */}
           <Space>
+            {saving && (
+              <Text type="secondary">
+                <SaveOutlined spin /> 保存中...
+              </Text>
+            )}
             <Button type="primary" icon={<EditOutlined />}>
-              编辑行程
+              编辑基本信息
             </Button>
             <Button icon={<ShareAltOutlined />}>分享</Button>
           </Space>
@@ -224,18 +340,12 @@ const ItineraryDetail: React.FC = () => {
                         key={itemIndex}
                         data-day={day.day}
                         data-index={itemIndex}
-                        onClick={() => {
-                          // 时间线项点击 → 地图高亮
-                          mapRef.current?.highlightLocation(day.day, itemIndex);
-                          setHighlightedItem({ day: day.day, index: itemIndex });
-                        }}
                         style={{
-                          padding: '8px 0',
+                          padding: '8px',
                           borderBottom:
                             itemIndex < day.items.length - 1
                               ? '1px solid #f0f0f0'
                               : 'none',
-                          cursor: 'pointer',
                           backgroundColor:
                             highlightedItem?.day === day.day &&
                             highlightedItem?.index === itemIndex
@@ -267,12 +377,53 @@ const ItineraryDetail: React.FC = () => {
                         }}
                       >
                         <Space direction="vertical" size={4} style={{ width: '100%' }}>
-                          <Space>
-                            <Tag color={item.type === 'attraction' ? 'green' : item.type === 'restaurant' ? 'orange' : 'cyan'}>
-                              {item.type}
-                            </Tag>
-                            <Text strong>{item.title}</Text>
-                            <Text type="secondary">({item.time})</Text>
+                          <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+                            <Space
+                              onClick={() => {
+                                // 时间线项点击 → 地图高亮
+                                mapRef.current?.highlightLocation(day.day, itemIndex);
+                                setHighlightedItem({ day: day.day, index: itemIndex });
+                              }}
+                              style={{ cursor: 'pointer', flex: 1 }}
+                            >
+                              <Tag color={item.type === 'attraction' ? 'green' : item.type === 'restaurant' ? 'orange' : 'cyan'}>
+                                {item.type}
+                              </Tag>
+                              <Text strong>{item.title}</Text>
+                              <Text type="secondary">({item.time})</Text>
+                            </Space>
+                            <Space size={4}>
+                              <Tooltip title="编辑">
+                                <Button
+                                  type="text"
+                                  size="small"
+                                  icon={<EditOutlined />}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEditItem(day.day, itemIndex, item);
+                                  }}
+                                />
+                              </Tooltip>
+                              <Tooltip title="删除">
+                                <Popconfirm
+                                  title="确定删除这个行程项吗?"
+                                  onConfirm={(e) => {
+                                    e?.stopPropagation();
+                                    handleDeleteItem(day.day, itemIndex);
+                                  }}
+                                  okText="删除"
+                                  cancelText="取消"
+                                >
+                                  <Button
+                                    type="text"
+                                    size="small"
+                                    danger
+                                    icon={<DeleteOutlined />}
+                                    onClick={(e) => e.stopPropagation()}
+                                  />
+                                </Popconfirm>
+                              </Tooltip>
+                            </Space>
                           </Space>
                           <Paragraph type="secondary" style={{ margin: 0, paddingLeft: 8 }}>
                             {item.description}
@@ -290,6 +441,17 @@ const ItineraryDetail: React.FC = () => {
                         </Space>
                       </div>
                     ))}
+                    
+                    {/* 添加项目按钮 */}
+                    <Button
+                      type="dashed"
+                      block
+                      icon={<PlusOutlined />}
+                      style={{ marginTop: 8 }}
+                      onClick={() => handleAddItem(day.day)}
+                    >
+                      添加行程项
+                    </Button>
                   </Card>
                 </Timeline.Item>
               ))}
@@ -493,6 +655,16 @@ const ItineraryDetail: React.FC = () => {
           </Card>
         </Col>
       </Row>
+
+      {/* 编辑行程项Modal */}
+      <EditItineraryItemModal
+        visible={editModalVisible}
+        item={editingItem}
+        dayNumber={editingDay}
+        isNew={isNewItem}
+        onCancel={() => setEditModalVisible(false)}
+        onSave={handleSaveItem}
+      />
     </div>
   );
 };
