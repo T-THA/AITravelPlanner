@@ -13,6 +13,7 @@ interface ItineraryMapProps {
 // 暴露给父组件的方法
 export interface ItineraryMapRef {
   highlightLocation: (day: number, itemIndex: number) => void;
+  highlightHotel: (hotelDay: number) => void; // 新增：高亮酒店标记
 }
 
 const ItineraryMap = forwardRef<ItineraryMapRef, ItineraryMapProps>(
@@ -28,7 +29,12 @@ const ItineraryMap = forwardRef<ItineraryMapRef, ItineraryMapProps>(
     // 存储标记与行程项的映射关系
     const markerItemMap = useRef<Map<any, { item: ItineraryItem; day: number; index: number }>>(
       new Map()
-    );  // 初始化地图
+    );
+    
+    // 存储酒店标记的映射关系
+    const hotelMarkerMap = useRef<Map<number, { marker: any; hotel: any }>>(new Map()); // day -> {marker, hotel}
+  
+  // 初始化地图
   useEffect(() => {
     if (!mapContainer.current) return;
 
@@ -295,7 +301,7 @@ const ItineraryMap = forwardRef<ItineraryMapRef, ItineraryMapProps>(
             if (location) {
               const position: [number, number] = [location.lng, location.lat];
 
-              // 创建酒店标记 - 使用不同样式
+              // 创建酒店标记 - 使用不同样式(移除Day标签)
               const hotelMarkerContent = `
                 <div style="position: relative; text-align: center;">
                   <svg width="36" height="48" viewBox="0 0 36 48" style="filter: drop-shadow(0 3px 6px rgba(255,107,107,0.5));">
@@ -305,11 +311,6 @@ const ItineraryMap = forwardRef<ItineraryMapRef, ItineraryMapProps>(
                           stroke-width="2"/>
                     <text x="18" y="22" text-anchor="middle" fill="#fff" font-size="20" font-weight="bold">🏨</text>
                   </svg>
-                  <div style="position: absolute; top: -25px; left: 50%; transform: translateX(-50%); 
-                              background: #ff6b6b; color: white; padding: 2px 8px; border-radius: 10px; 
-                              font-size: 11px; font-weight: 600; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
-                    Day ${hotel.day}
-                  </div>
                 </div>
               `;
 
@@ -374,6 +375,10 @@ const ItineraryMap = forwardRef<ItineraryMapRef, ItineraryMapProps>(
               hotelMarker.setMap(map);
               newMarkers.push(hotelMarker);
               allPoints.push(position);
+              
+              // 存储酒店标记到映射中(存储marker和hotel信息)
+              hotelMarkerMap.current.set(hotel.day, { marker: hotelMarker, hotel });
+              
               console.log(`✅ 酒店标记已添加: Day ${hotel.day} - ${hotel.hotel_name}`);
             } else {
               console.warn(`⚠️ 跳过无法定位的酒店: Day ${hotel.day} - ${hotel.hotel_name}`);
@@ -492,6 +497,71 @@ const ItineraryMap = forwardRef<ItineraryMapRef, ItineraryMapProps>(
           }
         })();
       }
+    },
+    
+    // 高亮酒店标记
+    highlightHotel: (hotelDay: number) => {
+      if (!map) return;
+
+      const hotelData = hotelMarkerMap.current.get(hotelDay);
+      if (!hotelData) {
+        console.warn(`未找到 Day ${hotelDay} 的酒店标记`);
+        return;
+      }
+
+      const { marker: targetMarker, hotel } = hotelData;
+
+      // 关闭所有 InfoWindow
+      infoWindowsRef.current.forEach((iw: any) => iw.close());
+
+      // 地图中心移动到该标记
+      const position = targetMarker.getPosition();
+      map.setCenter(position);
+      map.setZoom(16);
+
+      // 高亮标记（使用DOM动画）
+      try {
+        const markerDom = targetMarker.getContentDom();
+        if (markerDom) {
+          markerDom.style.animation = 'markerBounce 0.5s ease-out';
+          setTimeout(() => {
+            markerDom.style.animation = '';
+          }, 500);
+        }
+      } catch (err) {
+        console.warn('动画设置失败:', err);
+      }
+
+      // 手动创建并打开 InfoWindow (避免触发click导致重复渲染)
+      const hotelInfoWindow = new window.AMap.InfoWindow({
+        content: `
+          <div style="padding: 12px; min-width: 250px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+            <h4 style="margin: 0 0 10px 0; font-size: 16px; font-weight: 600; color: #262626;">
+              🏨 推荐住宿
+            </h4>
+            <h3 style="margin: 0 0 8px 0; font-size: 15px; color: #1890ff;">
+              ${hotel.hotel_name}
+            </h3>
+            <p style="margin: 4px 0; color: #8c8c8c; font-size: 13px;">
+              📍 ${hotel.location}
+            </p>
+            <div style="margin: 8px 0;">
+              <span style="background: #52c41a; color: white; padding: 2px 8px; border-radius: 10px; font-size: 12px; margin-right: 8px;">
+                ${hotel.price_range}
+              </span>
+              <span style="background: #faad14; color: white; padding: 2px 8px; border-radius: 10px; font-size: 12px;">
+                ⭐ ${hotel.rating}分
+              </span>
+            </div>
+            <p style="margin: 8px 0 0 0; color: #595959; font-size: 12px; line-height: 1.5;">
+              💡 ${hotel.booking_tips}
+            </p>
+          </div>
+        `,
+        offset: new window.AMap.Pixel(0, -30),
+      });
+      hotelInfoWindow.open(map, position);
+      infoWindowsRef.current.push(hotelInfoWindow);
     },
   }));
 

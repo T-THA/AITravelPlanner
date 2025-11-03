@@ -348,24 +348,67 @@ const ItineraryDetail: React.FC = () => {
         {/* 住宿推荐 */}
         <Col xs={24} md={12} lg={8}>
           <Card title="🏨 住宿推荐" style={{ marginBottom: 16 }}>
-            {itinerary.accommodation.map((acc, index) => (
-              <div key={index} style={{ marginBottom: 16 }}>
-                <Space direction="vertical" size={4} style={{ width: '100%' }}>
-                  <Text strong style={{ fontSize: 14 }}>Day {acc.day}: {acc.hotel_name}</Text>
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    <EnvironmentOutlined /> {acc.location}
-                  </Text>
-                  <Space size={16}>
-                    <Tag color="blue">{acc.price_range}</Tag>
-                    <Tag color="gold">⭐ {acc.rating}分</Tag>
+            {(() => {
+              // 去重：按酒店名称去重，只保留唯一的酒店
+              const uniqueHotels = Array.from(
+                new Map(
+                  itinerary.accommodation.map((acc) => [
+                    acc.hotel_name,
+                    {
+                      hotelName: acc.hotel_name,
+                      location: acc.location,
+                      priceRange: acc.price_range,
+                      rating: acc.rating,
+                      bookingTips: acc.booking_tips,
+                      day: acc.day, // 保留第一次出现的day用于地图定位
+                    },
+                  ])
+                ).values()
+              );
+
+              return uniqueHotels.map((hotel, index) => (
+                <div 
+                  key={index} 
+                  style={{ 
+                    marginBottom: 16,
+                    padding: '12px',
+                    borderRadius: '8px',
+                    border: '1px solid #f0f0f0',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#f5f5f5';
+                    e.currentTarget.style.borderColor = '#1890ff';
+                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(24, 144, 255, 0.15)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                    e.currentTarget.style.borderColor = '#f0f0f0';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
+                  onClick={() => {
+                    // 点击酒店卡片时，高亮地图上的对应标记
+                    mapRef.current?.highlightHotel(hotel.day);
+                    message.success(`正在定位: ${hotel.hotelName}`);
+                  }}
+                >
+                  <Space direction="vertical" size={4} style={{ width: '100%' }}>
+                    <Text strong style={{ fontSize: 14 }}>{hotel.hotelName}</Text>
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      <EnvironmentOutlined /> {hotel.location}
+                    </Text>
+                    <Space size={16}>
+                      <Tag color="blue">{hotel.priceRange}</Tag>
+                      <Tag color="gold">⭐ {hotel.rating}分</Tag>
+                    </Space>
+                    <Paragraph type="secondary" style={{ margin: 0, fontSize: 12 }}>
+                      💡 {hotel.bookingTips}
+                    </Paragraph>
                   </Space>
-                  <Paragraph type="secondary" style={{ margin: 0, fontSize: 12 }}>
-                    💡 {acc.booking_tips}
-                  </Paragraph>
-                </Space>
-                {index < itinerary.accommodation.length - 1 && <Divider style={{ margin: '12px 0' }} />}
-              </div>
-            ))}
+                </div>
+              ));
+            })()}
           </Card>
         </Col>
 
