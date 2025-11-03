@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Card,
@@ -26,6 +26,7 @@ import {
 } from '@ant-design/icons';
 import { tripService } from '../services/trip';
 import ItineraryMap from '../components/ItineraryMap';
+import type { ItineraryMapRef } from '../components/ItineraryMap';
 import type { GeneratedItinerary } from '../types';
 
 const { Title, Text, Paragraph } = Typography;
@@ -36,6 +37,13 @@ const ItineraryDetail: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [trip, setTrip] = useState<any>(null);
   const [itinerary, setItinerary] = useState<GeneratedItinerary | null>(null);
+  const mapRef = useRef<ItineraryMapRef>(null);
+  
+  // 用于高亮时间线项的状态
+  const [highlightedItem, setHighlightedItem] = useState<{
+    day: number;
+    index: number;
+  } | null>(null);
 
   // 加载行程数据
   useEffect(() => {
@@ -201,12 +209,46 @@ const ItineraryDetail: React.FC = () => {
                     {day.items.map((item, itemIndex) => (
                       <div
                         key={itemIndex}
+                        data-day={day.day}
+                        data-index={itemIndex}
+                        onClick={() => {
+                          // 时间线项点击 → 地图高亮
+                          mapRef.current?.highlightLocation(day.day, itemIndex);
+                          setHighlightedItem({ day: day.day, index: itemIndex });
+                        }}
                         style={{
                           padding: '12px 0',
                           borderBottom:
                             itemIndex < day.items.length - 1
                               ? '1px solid #f0f0f0'
                               : 'none',
+                          cursor: 'pointer',
+                          backgroundColor:
+                            highlightedItem?.day === day.day &&
+                            highlightedItem?.index === itemIndex
+                              ? '#e6f7ff'
+                              : 'transparent',
+                          transition: 'background-color 0.3s',
+                        }}
+                        onMouseEnter={(e) => {
+                          if (
+                            !(
+                              highlightedItem?.day === day.day &&
+                              highlightedItem?.index === itemIndex
+                            )
+                          ) {
+                            e.currentTarget.style.backgroundColor = '#f5f5f5';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (
+                            !(
+                              highlightedItem?.day === day.day &&
+                              highlightedItem?.index === itemIndex
+                            )
+                          ) {
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                          }
                         }}
                       >
                         <Space direction="vertical" size={4} style={{ width: '100%' }}>
@@ -246,11 +288,30 @@ const ItineraryDetail: React.FC = () => {
           <Card title="行程地图" style={{ marginBottom: 16, minHeight: 400 }}>
             <div style={{ height: 400 }}>
               <ItineraryMap
+                ref={mapRef}
                 dailyItinerary={itinerary.daily_itinerary || []}
                 city={trip.destination}
-                onMarkerClick={(item) => {
-                  console.log('地点点击:', item);
-                  // 可以在这里实现与时间线的联动
+                onMarkerClick={(item, day) => {
+                  console.log('地点点击:', item, 'Day:', day);
+                  // 地图标记点击 → 时间线高亮（需要找到对应的 itemIndex）
+                  const dayData = itinerary.daily_itinerary.find((d) => d.day === day);
+                  if (dayData) {
+                    const itemIndex = dayData.items.findIndex((i) => i.title === item.title);
+                    if (itemIndex !== -1) {
+                      setHighlightedItem({ day, index: itemIndex });
+                      
+                      // 滚动到对应的时间线项
+                      // 使用 setTimeout 确保 DOM 更新后再滚动
+                      setTimeout(() => {
+                        const element = document.querySelector(
+                          `[data-day="${day}"][data-index="${itemIndex}"]`
+                        );
+                        if (element) {
+                          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+                      }, 100);
+                    }
+                  }
                 }}
               />
             </div>

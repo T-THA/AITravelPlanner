@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useImperativeHandle, forwardRef } from 'react';
 import { message } from 'antd';
 import { amapService } from '../services/amap';
 import type { DailyItinerary, ItineraryItem } from '../types';
@@ -6,15 +6,27 @@ import type { DailyItinerary, ItineraryItem } from '../types';
 interface ItineraryMapProps {
   dailyItinerary: DailyItinerary[]; // 按天分组的行程
   city: string;
-  onMarkerClick?: (item: ItineraryItem) => void;
+  onMarkerClick?: (item: ItineraryItem, day: number) => void;
 }
 
-const ItineraryMap: React.FC<ItineraryMapProps> = ({ dailyItinerary, city, onMarkerClick }) => {
-  const mapContainer = useRef<HTMLDivElement>(null);
-  const [map, setMap] = useState<any>(null);
-  const [markers, setMarkers] = useState<any[]>([]);
-  const [polylines, setPolylines] = useState<any[]>([]); // 存储路线
-  const containerId = useRef<string>(`map-${Date.now()}`);
+// 暴露给父组件的方法
+export interface ItineraryMapRef {
+  highlightLocation: (day: number, itemIndex: number) => void;
+}
+
+const ItineraryMap = forwardRef<ItineraryMapRef, ItineraryMapProps>(
+  ({ dailyItinerary, city, onMarkerClick }, ref) => {
+    const mapContainer = useRef<HTMLDivElement>(null);
+    const [map, setMap] = useState<any>(null);
+    const [markers, setMarkers] = useState<any[]>([]);
+    const [polylines, setPolylines] = useState<any[]>([]); // 存储路线
+    const infoWindowsRef = useRef<any[]>([]); // 存储所有 InfoWindow
+    const containerId = useRef<string>(`map-${Date.now()}`);
+    
+    // 存储标记与行程项的映射关系
+    const markerItemMap = useRef<Map<any, { item: ItineraryItem; day: number; index: number }>>(
+      new Map()
+    );
 
   // 初始化地图
   useEffect(() => {
@@ -73,7 +85,8 @@ const ItineraryMap: React.FC<ItineraryMapProps> = ({ dailyItinerary, city, onMar
         const dayColor = colors[dayIndex % colors.length];
 
         // 遍历当天的每个地点
-        for (const item of day.items) {
+        for (let itemIndex = 0; itemIndex < day.items.length; itemIndex++) {
+          const item = day.items[itemIndex];
           try {
             // 地理编码：地址 -> 坐标
             const fullAddress = `${city}${item.location}`;
@@ -98,11 +111,17 @@ const ItineraryMap: React.FC<ItineraryMapProps> = ({ dailyItinerary, city, onMar
                 }),
               });
 
+              // 存储标记与行程项的映射
+              markerItemMap.current.set(marker, { item, day: day.day, index: itemIndex });
+
               // 点击事件
               marker.on('click', () => {
                 if (onMarkerClick) {
-                  onMarkerClick(item);
+                  onMarkerClick(item, day.day);
                 }
+
+                // 关闭所有已打开的 InfoWindow
+                infoWindowsRef.current.forEach((iw: any) => iw.close());
 
                 // 显示信息窗口
                 const infoWindow = new window.AMap.InfoWindow({
@@ -110,6 +129,11 @@ const ItineraryMap: React.FC<ItineraryMapProps> = ({ dailyItinerary, city, onMar
                   offset: new window.AMap.Pixel(0, -30),
                 });
                 infoWindow.open(map, marker.getPosition());
+                infoWindowsRef.current.push(infoWindow);
+                
+                // 高亮当前标记
+                marker.setAnimation('AMAP_ANIMATION_BOUNCE');
+                setTimeout(() => marker.setAnimation('AMAP_ANIMATION_NONE'), 1000);
               });
 
               marker.setMap(map);
@@ -139,6 +163,7 @@ const ItineraryMap: React.FC<ItineraryMapProps> = ({ dailyItinerary, city, onMar
       }
 
       setMarkers(newMarkers);
+      setMarkers(newMarkers);
       setPolylines(newPolylines);
 
       // 自动调整视野以包含所有标记
@@ -149,6 +174,50 @@ const ItineraryMap: React.FC<ItineraryMapProps> = ({ dailyItinerary, city, onMar
 
     addMarkersAndRoutes();
   }, [map, dailyItinerary, city]);
+
+  // 暴露给父组件的方法：高亮指定位置
+  useImperativeHandle(ref, () => ({
+    highlightLocation: (day: number, itemIndex: number) => {
+      if (!map || markers.length === 0) return;
+
+      // 查找对应的标记
+      let targetMarker: any = null;
+      for (const [marker, data] of markerItemMap.current.entries()) {
+        if (data.day === day && data.index === itemIndex) {
+          targetMarker = marker;
+          break;
+        }
+      }
+
+      if (!targetMarker) {
+        console.warn(`未找到 Day ${day} 第 ${itemIndex} 个地点的标记`);
+        return;
+      }
+
+      // 关闭所有 InfoWindow
+      infoWindowsRef.current.forEach((iw: any) => iw.close());
+
+      // 地图中心移动到该标记
+      const position = targetMarker.getPosition();
+      map.setCenter(position);
+      map.setZoom(16);
+
+      // 高亮标记（跳动动画）
+      targetMarker.setAnimation('AMAP_ANIMATION_BOUNCE');
+      setTimeout(() => targetMarker.setAnimation('AMAP_ANIMATION_NONE'), 1500);
+
+      // 打开 InfoWindow
+      const data = markerItemMap.current.get(targetMarker);
+      if (data) {
+        const infoWindow = new window.AMap.InfoWindow({
+          content: createInfoWindowContent(data.item, data.day),
+          offset: new window.AMap.Pixel(0, -30),
+        });
+        infoWindow.open(map, position);
+        infoWindowsRef.current.push(infoWindow);
+      }
+    },
+  }));
 
   // 根据颜色代码获取标记图标名称
   const getColorName = (colorCode: string): string => {
@@ -199,6 +268,8 @@ const ItineraryMap: React.FC<ItineraryMapProps> = ({ dailyItinerary, city, onMar
       }}
     />
   );
-};
+});
+
+ItineraryMap.displayName = 'ItineraryMap';
 
 export default ItineraryMap;
