@@ -14,15 +14,23 @@ import {
   message,
   Spin,
   Empty,
+  Dropdown,
 } from 'antd';
+import type { MenuProps } from 'antd';
 import {
   PlusOutlined,
   BarChartOutlined,
   UnorderedListOutlined,
   ReloadOutlined,
+  DownloadOutlined,
 } from '@ant-design/icons';
 import { useAuthStore } from '../stores/authStore';
 import { expenseService } from '../services/expense';
+import {
+  exportExpensesToExcel,
+  exportExpensesToCSV,
+  exportExpenseReportToExcel,
+} from '../services/export';
 import AddExpenseModal from '../components/AddExpenseModal';
 import ExpenseList from '../components/ExpenseList';
 import ExpenseStatistics from '../components/ExpenseStatistics';
@@ -156,6 +164,62 @@ const ExpenseManagement: React.FC = () => {
     }
   };
 
+  // 处理导出
+  const handleExport = (type: 'excel' | 'csv' | 'report') => {
+    if (!selectedTripId || expenses.length === 0) {
+      message.warning('没有可导出的费用记录');
+      return;
+    }
+
+    const currentTrip = trips.find((t) => t.id === selectedTripId);
+    if (!currentTrip) return;
+
+    const tripName = currentTrip.destination;
+    const totalAmount = overview?.total_amount || 0;
+    const budget = currentTrip.budget || 0;
+
+    try {
+      if (type === 'excel') {
+        exportExpensesToExcel(expenses, tripName, totalAmount, budget);
+        message.success('Excel文件已导出');
+      } else if (type === 'csv') {
+        exportExpensesToCSV(expenses, tripName, totalAmount, budget);
+        message.success('CSV文件已导出');
+      } else if (type === 'report') {
+        const categoryStats = overview?.by_category.map((item) => ({
+          category: item.category,
+          amount: item.total_amount,
+          count: item.count,
+          percentage: item.percentage,
+        })) || [];
+        exportExpenseReportToExcel(expenses, tripName, totalAmount, budget, categoryStats);
+        message.success('费用报告已导出');
+      }
+    } catch (error: any) {
+      console.error('导出失败:', error);
+      message.error('导出失败，请重试');
+    }
+  };
+
+  // 导出菜单项
+  const exportMenuItems: MenuProps['items'] = [
+    {
+      key: 'excel',
+      label: '导出为Excel',
+      onClick: () => handleExport('excel'),
+    },
+    {
+      key: 'csv',
+      label: '导出为CSV',
+      onClick: () => handleExport('csv'),
+    },
+    {
+      key: 'report',
+      label: '导出统计报告',
+      onClick: () => handleExport('report'),
+    },
+  ];
+
   // 如果没有登录
   if (!user) {
     return (
@@ -182,6 +246,11 @@ const ExpenseManagement: React.FC = () => {
             >
               刷新
             </Button>
+            <Dropdown menu={{ items: exportMenuItems }} disabled={!selectedTripId || expenses.length === 0}>
+              <Button icon={<DownloadOutlined />}>
+                导出
+              </Button>
+            </Dropdown>
             <Button
               type="primary"
               icon={<PlusOutlined />}
