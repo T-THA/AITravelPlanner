@@ -102,6 +102,18 @@ class IFlyTekASRService {
     this.onStatusChangeCallback = onStatusChange;
 
     try {
+      // 检查是否支持 getUserMedia
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        const isHttps = window.location.protocol === 'https:';
+        const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        
+        if (!isHttps && !isLocalhost) {
+          throw new Error('语音输入需要HTTPS环境或localhost。请使用HTTPS访问或在本地测试。');
+        } else {
+          throw new Error('您的浏览器不支持语音输入功能，请使用Chrome、Edge或Firefox浏览器。');
+        }
+      }
+
       // 1. 请求麦克风权限
       this.audioStream = await navigator.mediaDevices.getUserMedia({
         audio: {
