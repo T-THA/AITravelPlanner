@@ -21,21 +21,23 @@ RUN npm run build
 # ==========================================
 # 阶段 2: 生产阶段
 # ==========================================
-FROM nginx:alpine
+FROM node:18-alpine
 
 # 维护者信息
 LABEL maintainer="T-THA"
 LABEL description="AI Travel Planner - AI-powered travel planning application"
 LABEL version="1.0.0"
 
-# 安装必要工具
-RUN apk add --no-cache curl bash
+# 安装nginx和必要工具
+RUN apk add --no-cache nginx curl bash && \
+    mkdir -p /run/nginx && \
+    mkdir -p /usr/share/nginx/html
 
 # 从构建阶段复制构建产物
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 # 复制 Nginx 配置
-COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
+COPY docker/nginx.conf /etc/nginx/http.d/default.conf
 
 # 复制环境变量注入脚本
 COPY docker/docker-entrypoint.sh /docker-entrypoint.sh
