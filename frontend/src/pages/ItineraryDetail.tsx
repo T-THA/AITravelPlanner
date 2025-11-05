@@ -15,7 +15,6 @@ import {
   Divider,
   Modal,
   Input,
-  Dropdown,
 } from 'antd';
 import {
   EnvironmentOutlined,
@@ -29,7 +28,6 @@ import {
   SaveOutlined,
   BarChartOutlined,
   LinkOutlined,
-  FilePdfOutlined,
 } from '@ant-design/icons';
 import { tripService } from '../services/trip';
 import { dashScopeService } from '../services/dashscope';
@@ -67,7 +65,6 @@ const ItineraryDetail: React.FC = () => {
   // 分享状态
   const [shareModalVisible, setShareModalVisible] = useState(false);
   const [shareUrl, setShareUrl] = useState('');
-  const [exportingPDF, setExportingPDF] = useState(false);
 
   // 加载行程数据
   useEffect(() => {
@@ -187,92 +184,6 @@ const ItineraryDetail: React.FC = () => {
     });
   };
 
-  // 导出为PDF
-  const handleExportPDF = async () => {
-    setExportingPDF(true);
-    try {
-      // 动态导入html2canvas和jspdf
-      const html2canvas = (await import('html2canvas')).default;
-      const { jsPDF } = await import('jspdf');
-
-      // 获取要导出的DOM元素
-      const element = document.getElementById('itinerary-content');
-      if (!element) {
-        message.error('无法找到行程内容');
-        return;
-      }
-
-      message.loading({ content: '正在生成PDF，请稍候...', key: 'pdf', duration: 0 });
-
-      // 暂时隐藏地图列（仅导出文字内容）
-      const mapCol = document.getElementById('map-column');
-      const originalMapDisplay = mapCol ? mapCol.style.display : '';
-      if (mapCol) {
-        mapCol.style.display = 'none';
-      }
-
-      // 调整左侧列为全宽
-      const contentCol = document.getElementById('content-column');
-      const originalContentWidth = contentCol ? contentCol.style.width : '';
-      if (contentCol) {
-        contentCol.style.width = '100%';
-      }
-
-      // 等待DOM更新
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      // 将DOM转换为canvas
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-        windowWidth: 1200,
-      });
-
-      // 恢复原始样式
-      if (mapCol) {
-        mapCol.style.display = originalMapDisplay;
-      }
-      if (contentCol) {
-        contentCol.style.width = originalContentWidth;
-      }
-
-      // 创建PDF
-      const imgWidth = 210; // A4宽度(mm)
-      const pageHeight = 297; // A4高度(mm)
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      let heightLeft = imgHeight;
-
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      let position = 0;
-
-      // 添加第一页
-      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
-
-      // 如果内容超过一页，添加新页
-      while (heightLeft > 0) {
-        position = heightLeft - imgHeight;
-        pdf.addPage();
-        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
-      }
-
-      // 保存PDF
-      const fileName = `${trip.title || '行程'}_${new Date().toLocaleDateString().replace(/\//g, '-')}.pdf`;
-      pdf.save(fileName);
-
-      message.success({ content: 'PDF导出成功', key: 'pdf' });
-      setShareModalVisible(false);
-    } catch (error) {
-      console.error('Export PDF error:', error);
-      message.error({ content: 'PDF导出失败', key: 'pdf' });
-    } finally {
-      setExportingPDF(false);
-    }
-  };
-
   if (loading) {
     return (
       <div style={{ textAlign: 'center', padding: '100px 0' }}>
@@ -291,9 +202,8 @@ const ItineraryDetail: React.FC = () => {
 
   return (
     <div style={{ padding: '24px', maxWidth: 1400, margin: '0 auto' }}>
-      <div id="itinerary-content">
-        {/* 顶部标题栏 */}
-        <Card style={{ marginBottom: 16 }}>
+      {/* 顶部标题栏 */}
+      <Card style={{ marginBottom: 16 }}>
         <Space direction="vertical" size="middle" style={{ width: '100%' }}>
           {/* 返回按钮 + 标题 */}
           <Space>
@@ -384,32 +294,12 @@ const ItineraryDetail: React.FC = () => {
             >
               预算分析
             </Button>
-            <Dropdown
-              menu={{
-                items: [
-                  {
-                    key: 'link',
-                    icon: <LinkOutlined />,
-                    label: '复制链接',
-                  },
-                  {
-                    key: 'pdf',
-                    icon: <FilePdfOutlined />,
-                    label: '导出PDF',
-                  },
-                ],
-                onClick: ({ key }) => {
-                  if (key === 'link') {
-                    handleShare();
-                  } else if (key === 'pdf') {
-                    handleExportPDF();
-                  }
-                },
-              }}
-              placement="bottomRight"
+            <Button 
+              icon={<ShareAltOutlined />}
+              onClick={handleShare}
             >
-              <Button icon={<ShareAltOutlined />}>分享</Button>
-            </Dropdown>
+              分享
+            </Button>
           </Space>
         </Space>
       </Card>
@@ -417,7 +307,7 @@ const ItineraryDetail: React.FC = () => {
       {/* 主内容区域: 左侧时间线 + 右侧地图 */}
       <Row gutter={24}>
         {/* 左侧: 每日行程时间线 - 紧凑布局 */}
-        <Col id="content-column" xs={24} lg={10}>
+        <Col xs={24} lg={10}>
           <Card 
             title="每日行程" 
             style={{ 
@@ -535,7 +425,7 @@ const ItineraryDetail: React.FC = () => {
         </Col>
 
         {/* 右侧: 地图 + 其他信息 */}
-        <Col id="map-column" xs={24} lg={14}>
+        <Col xs={24} lg={14}>
           {/* 行程地图 - 增大尺寸 */}
           <Card 
             title="行程地图" 
@@ -731,8 +621,6 @@ const ItineraryDetail: React.FC = () => {
           </Card>
         </Col>
       </Row>
-      </div>
-      {/* End of itinerary-content */}
 
       {/* 编辑行程Drawer */}
       <EditItineraryDrawer
@@ -801,14 +689,6 @@ const ItineraryDetail: React.FC = () => {
           >
             复制链接
           </Button>,
-          <Button
-            key="pdf"
-            icon={<FilePdfOutlined />}
-            onClick={handleExportPDF}
-            loading={exportingPDF}
-          >
-            导出PDF
-          </Button>,
         ]}
       >
         <Space direction="vertical" style={{ width: '100%' }}>
@@ -819,9 +699,6 @@ const ItineraryDetail: React.FC = () => {
             autoSize={{ minRows: 2, maxRows: 4 }}
             style={{ marginTop: 8 }}
           />
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            💡 提示：您也可以将行程导出为PDF文件保存或分享
-          </Text>
         </Space>
       </Modal>
     </div>

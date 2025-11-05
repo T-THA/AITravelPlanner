@@ -167,7 +167,20 @@ const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
   return (
     <>
       <Modal
-        title={isEditMode ? '编辑费用记录' : '添加费用记录'}
+        title={
+          <Space>
+            <span>{isEditMode ? '编辑费用记录' : '添加费用记录'}</span>
+            <Button
+              type="primary"
+              size="small"
+              icon={<AudioOutlined />}
+              onClick={() => setVoiceInputVisible(true)}
+              style={{ marginLeft: 'auto' }}
+            >
+              语音填充表单
+            </Button>
+          </Space>
+        }
         open={visible}
         onOk={handleSubmit}
         onCancel={onCancel}
@@ -229,25 +242,12 @@ const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
           </Form.Item>
 
           <Form.Item
-            label={
-              <Space>
-                <span>描述</span>
-                <Button
-                  type="link"
-                  size="small"
-                  icon={<AudioOutlined />}
-                  onClick={() => setVoiceInputVisible(true)}
-                  style={{ padding: 0 }}
-                >
-                  语音输入
-                </Button>
-              </Space>
-            }
+            label="描述"
             name="description"
           >
             <Input
               size="large"
-              placeholder="例如：打车去机场（或点击语音输入）"
+              placeholder="例如：打车去机场"
               maxLength={200}
             />
           </Form.Item>
