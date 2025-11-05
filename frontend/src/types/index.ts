@@ -238,7 +238,7 @@ export interface ExpenseQueryParams {
   category?: ExpenseCategory;  // 类别筛选
   min_amount?: number;    // 最小金额
   max_amount?: number;    // 最大金额
-  sort_by?: 'date' | 'amount' | 'created_at';  // 排序字段
+  sort_by?: 'expense_date' | 'amount' | 'created_at';  // 排序字段
   sort_order?: 'asc' | 'desc';                 // 排序方向
 }
 

@@ -45,14 +45,16 @@ const ExpenseManagement: React.FC = () => {
   // 加载用户的行程列表
   useEffect(() => {
     loadTrips();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   // 加载选中行程的费用数据
   useEffect(() => {
-    if (selectedTripId) {
+    if (selectedTripId && trips.length > 0) {
       loadExpenseData();
     }
-  }, [selectedTripId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTripId, trips]);
 
   // 加载行程列表
   const loadTrips = async () => {
@@ -86,12 +88,19 @@ const ExpenseManagement: React.FC = () => {
 
   // 加载费用数据
   const loadExpenseData = async () => {
+    if (!selectedTripId) return;
+    
     try {
       setLoading(true);
       
       // 获取当前行程的预算
       const currentTrip = trips.find((t) => t.id === selectedTripId);
-      const budget = currentTrip?.budget || 0;
+      if (!currentTrip) {
+        console.error('未找到选中的行程');
+        return;
+      }
+      
+      const budget = currentTrip.budget || 0;
 
       // 加载费用列表
       const expenseList = await expenseService.getExpenses({
@@ -195,7 +204,7 @@ const ExpenseManagement: React.FC = () => {
         >
           {trips.map((trip) => (
             <Option key={trip.id} value={trip.id}>
-              {trip.destination.join(' → ')} ({trip.start_date} 至 {trip.end_date})
+              {trip.destination} ({trip.start_date} 至 {trip.end_date})
             </Option>
           ))}
         </Select>
