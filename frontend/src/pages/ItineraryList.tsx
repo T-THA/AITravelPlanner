@@ -16,10 +16,10 @@ import {
   Col,
   Input,
   Dropdown,
-  MenuProps,
   Modal,
   Skeleton,
 } from 'antd';
+import type { MenuProps } from 'antd';
 import {
   PlusOutlined,
   CalendarOutlined,
