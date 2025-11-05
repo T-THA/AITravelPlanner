@@ -220,18 +220,21 @@ const ItineraryList: React.FC = () => {
   // 归档行程
   const handleArchive = async (tripId: string) => {
     try {
-      const { error } = await tripService.updateTripStatus(tripId, 'archived');
+      const trip = trips.find(t => t.id === tripId);
+      const newStatus = trip?.status === 'archived' ? 'generated' : 'archived';
+      
+      const { error } = await tripService.updateTripStatus(tripId, newStatus);
       
       if (error) {
-        message.error('归档失败: ' + error.message);
+        message.error('操作失败: ' + error.message);
         return;
       }
 
-      message.success('已归档');
+      message.success(newStatus === 'archived' ? '已归档' : '已取消归档');
       loadTrips();
     } catch (error) {
       console.error('Archive trip error:', error);
-      message.error('归档失败');
+      message.error('操作失败');
     }
   };
 
@@ -243,14 +246,11 @@ const ItineraryList: React.FC = () => {
   // 获取状态标签
   const getStatusTag = (status: string) => {
     const statusMap: Record<string, { color: string; text: string }> = {
-      draft: { color: 'default', text: '草稿' },
       generated: { color: 'blue', text: '已生成' },
-      in_progress: { color: 'orange', text: '进行中' },
-      completed: { color: 'green', text: '已完成' },
       archived: { color: 'default', text: '已归档' },
     };
 
-    const config = statusMap[status] || { color: 'default', text: status };
+    const config = statusMap[status] || { color: 'blue', text: '已生成' };
     return <Tag color={config.color}>{config.text}</Tag>;
   };
 
@@ -336,10 +336,7 @@ const ItineraryList: React.FC = () => {
                 onChange={setStatusFilter}
                 options={[
                   { label: '全部', value: 'all' },
-                  { label: '草稿', value: 'draft' },
                   { label: '已生成', value: 'generated' },
-                  { label: '进行中', value: 'in_progress' },
-                  { label: '已完成', value: 'completed' },
                   { label: '已归档', value: 'archived' },
                 ]}
               />
@@ -466,7 +463,6 @@ const ItineraryList: React.FC = () => {
                 icon: <InboxOutlined />,
                 label: trip.status === 'archived' ? '取消归档' : '归档',
                 onClick: () => handleArchive(trip.id),
-                disabled: trip.status === 'draft',
               },
             ];
 

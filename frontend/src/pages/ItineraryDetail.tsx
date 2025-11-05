@@ -14,7 +14,10 @@ import {
   Col,
   Divider,
   Modal,
+  Input,
+  Dropdown,
 } from 'antd';
+import type { MenuProps } from 'antd';
 import {
   EnvironmentOutlined,
   CalendarOutlined,
@@ -26,6 +29,8 @@ import {
   ShareAltOutlined,
   SaveOutlined,
   BarChartOutlined,
+  LinkOutlined,
+  FilePdfOutlined,
 } from '@ant-design/icons';
 import { tripService } from '../services/trip';
 import { dashScopeService } from '../services/dashscope';
@@ -59,6 +64,11 @@ const ItineraryDetail: React.FC = () => {
   const [budgetAnalysis, setBudgetAnalysis] = useState<BudgetAnalysisType | null>(null);
   const [budgetAnalysisVisible, setBudgetAnalysisVisible] = useState(false);
   const [analyzingBudget, setAnalyzingBudget] = useState(false);
+
+  // 分享状态
+  const [shareModalVisible, setShareModalVisible] = useState(false);
+  const [shareUrl, setShareUrl] = useState('');
+  const [exportingPDF, setExportingPDF] = useState(false);
 
   // 加载行程数据
   useEffect(() => {
@@ -162,6 +172,82 @@ const ItineraryDetail: React.FC = () => {
     }
   };
 
+  // 分享行程
+  const handleShare = () => {
+    const url = `${window.location.origin}/itineraries/${id}`;
+    setShareUrl(url);
+    setShareModalVisible(true);
+  };
+
+  // 复制分享链接
+  const handleCopyShareUrl = () => {
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      message.success('链接已复制到剪贴板');
+    }).catch(() => {
+      message.error('复制失败，请手动复制');
+    });
+  };
+
+  // 导出为PDF
+  const handleExportPDF = async () => {
+    setExportingPDF(true);
+    try {
+      // 动态导入html2canvas和jspdf
+      const html2canvas = (await import('html2canvas')).default;
+      const { jsPDF } = await import('jspdf');
+
+      // 获取要导出的DOM元素
+      const element = document.getElementById('itinerary-content');
+      if (!element) {
+        message.error('无法找到行程内容');
+        return;
+      }
+
+      message.loading({ content: '正在生成PDF...', key: 'pdf', duration: 0 });
+
+      // 将DOM转换为canvas
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+      });
+
+      // 创建PDF
+      const imgWidth = 210; // A4宽度(mm)
+      const pageHeight = 297; // A4高度(mm)
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let heightLeft = imgHeight;
+
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      let position = 0;
+
+      // 添加第一页
+      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      // 如果内容超过一页，添加新页
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      // 保存PDF
+      const fileName = `${trip.title || '行程'}_${new Date().toLocaleDateString()}.pdf`;
+      pdf.save(fileName);
+
+      message.success({ content: 'PDF导出成功', key: 'pdf' });
+      setShareModalVisible(false);
+    } catch (error) {
+      console.error('Export PDF error:', error);
+      message.error({ content: 'PDF导出失败', key: 'pdf' });
+    } finally {
+      setExportingPDF(false);
+    }
+  };
+
   if (loading) {
     return (
       <div style={{ textAlign: 'center', padding: '100px 0' }}>
@@ -181,7 +267,7 @@ const ItineraryDetail: React.FC = () => {
   return (
     <div style={{ padding: '24px', maxWidth: 1400, margin: '0 auto' }}>
       {/* 顶部标题栏 */}
-      <Card style={{ marginBottom: 16 }}>
+      <Card style={{ marginBottom: 16 }} id="itinerary-content">
         <Space direction="vertical" size="middle" style={{ width: '100%' }}>
           {/* 返回按钮 + 标题 */}
           <Space>
@@ -272,7 +358,32 @@ const ItineraryDetail: React.FC = () => {
             >
               预算分析
             </Button>
-            <Button icon={<ShareAltOutlined />}>分享</Button>
+            <Dropdown
+              menu={{
+                items: [
+                  {
+                    key: 'link',
+                    icon: <LinkOutlined />,
+                    label: '复制链接',
+                  },
+                  {
+                    key: 'pdf',
+                    icon: <FilePdfOutlined />,
+                    label: '导出PDF',
+                  },
+                ],
+                onClick: ({ key }) => {
+                  if (key === 'link') {
+                    handleShare();
+                  } else if (key === 'pdf') {
+                    handleExportPDF();
+                  }
+                },
+              }}
+              placement="bottomRight"
+            >
+              <Button icon={<ShareAltOutlined />}>分享</Button>
+            </Dropdown>
           </Space>
         </Space>
       </Card>
@@ -643,6 +754,47 @@ const ItineraryDetail: React.FC = () => {
             <Text type="secondary">暂无分析数据</Text>
           </div>
         )}
+      </Modal>
+
+      {/* 分享Modal */}
+      <Modal
+        title="分享行程"
+        open={shareModalVisible}
+        onCancel={() => setShareModalVisible(false)}
+        footer={[
+          <Button key="cancel" onClick={() => setShareModalVisible(false)}>
+            取消
+          </Button>,
+          <Button 
+            key="copy" 
+            type="primary" 
+            icon={<LinkOutlined />}
+            onClick={handleCopyShareUrl}
+          >
+            复制链接
+          </Button>,
+          <Button
+            key="pdf"
+            icon={<FilePdfOutlined />}
+            onClick={handleExportPDF}
+            loading={exportingPDF}
+          >
+            导出PDF
+          </Button>,
+        ]}
+      >
+        <Space direction="vertical" style={{ width: '100%' }}>
+          <Text>分享此链接，让其他人查看您的行程：</Text>
+          <Input.TextArea
+            value={shareUrl}
+            readOnly
+            autoSize={{ minRows: 2, maxRows: 4 }}
+            style={{ marginTop: 8 }}
+          />
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            💡 提示：您也可以将行程导出为PDF文件保存或分享
+          </Text>
+        </Space>
       </Modal>
     </div>
   );
