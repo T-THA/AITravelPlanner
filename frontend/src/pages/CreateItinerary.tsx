@@ -25,7 +25,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import type { TripRequest, VoiceParsedData } from '../types';
 import { tripService } from '../services/trip';
-import { llmService } from '../services/llm';
+import { dashScopeService } from '../services/dashscope';
 import VoiceInput from '../components/VoiceInput';
 import ItineraryGenerating from '../components/ItineraryGenerating';
 import dayjs from 'dayjs';
@@ -134,13 +134,20 @@ const CreateItinerary: React.FC = () => {
       setGenerating(true);
       
       try {
-        // 第三步：调用 LLM 生成行程
+        // 第三步：调用 DashScope 生成行程
         console.log('开始生成行程...');
-        const { data: itinerary, error: generateError } = await llmService.generateItinerary(request);
+        const itinerary = await dashScopeService.generateItinerary({
+          destination: request.destination,
+          days: request.days,
+          budget: request.budget,
+          travelers: request.travelers,
+          preferences: request.preferences,
+          specialNeeds: request.specialNeeds,
+        });
         
-        if (generateError || !itinerary) {
+        if (!itinerary) {
           setGenerating(false);
-          message.error('行程生成失败: ' + (generateError?.message || '未知错误'));
+          message.error('行程生成失败: 未知错误');
           // 即使生成失败，需求已保存，可以稍后重试
           message.info('您的需求已保存为草稿，可以稍后重新生成');
           setTimeout(() => {
