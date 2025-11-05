@@ -217,10 +217,18 @@ const VoiceInput: React.FC<VoiceInputProps> = ({
         width={600}
       >
         <div style={{ padding: '20px 0' }}>
-          {/* 提示文本 */}
+          {/* 自定义提示文本 - 在未录音时显示 */}
           {placeholder && !isRecording && !recognizedText && (
-            <div style={{ marginBottom: 16 }}>
-              <Text type="secondary">{placeholder}</Text>
+            <div style={{ 
+              marginBottom: 16, 
+              padding: 12, 
+              background: '#e6f7ff', 
+              borderRadius: 8,
+              border: '1px solid #91d5ff'
+            }}>
+              <Text type="secondary">
+                <strong>💡 提示：</strong>{placeholder}
+              </Text>
             </div>
           )}
 
@@ -315,12 +323,14 @@ const VoiceInput: React.FC<VoiceInputProps> = ({
             </div>
           )}
 
-          {/* 使用提示 */}
-          <div style={{ marginTop: 24, padding: 12, background: '#f6f6f6', borderRadius: 8 }}>
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              <strong>使用提示:</strong> 您可以说"我想去北京玩5天，预算1万元，喜欢历史文化和美食"等，系统会自动识别并填充表单。
-            </Text>
-          </div>
+          {/* 使用提示 - 仅在未录音且无提示placeholder时显示默认提示 */}
+          {!placeholder && !isRecording && !recognizedText && (
+            <div style={{ marginTop: 24, padding: 12, background: '#f6f6f6', borderRadius: 8 }}>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                <strong>使用提示:</strong> 您可以说"我想去北京玩5天，预算1万元，喜欢历史文化和美食"等，系统会自动识别并填充表单。
+              </Text>
+            </div>
+          )}
         </div>
       </Modal>
     </>
