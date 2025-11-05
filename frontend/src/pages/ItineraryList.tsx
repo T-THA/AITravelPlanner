@@ -1,5 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Empty, Button, List, Tag, Space, Typography, message, Spin, Popconfirm } from 'antd';
+import { 
+  Card, 
+  Empty, 
+  Button, 
+  List, 
+  Tag, 
+  Space, 
+  Typography, 
+  message, 
+  Spin, 
+  Popconfirm,
+  Select,
+  DatePicker,
+  Row,
+  Col,
+} from 'antd';
 import {
   PlusOutlined,
   CalendarOutlined,
@@ -8,12 +23,15 @@ import {
   UserOutlined,
   EyeOutlined,
   DeleteOutlined,
+  FilterOutlined,
+  ReloadOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { tripService } from '../services/trip';
-import dayjs from 'dayjs';
+import dayjs, { Dayjs } from 'dayjs';
 
 const { Text } = Typography;
+const { RangePicker } = DatePicker;
 
 interface Trip {
   id: string;
@@ -32,11 +50,21 @@ const ItineraryList: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [trips, setTrips] = useState<Trip[]>([]);
+  
+  // 筛选状态
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
+  const [filteredTrips, setFilteredTrips] = useState<Trip[]>([]);
 
   // 加载行程列表
   useEffect(() => {
     loadTrips();
   }, []);
+
+  // 应用筛选
+  useEffect(() => {
+    applyFilters();
+  }, [trips, statusFilter, dateRange]);
 
   const loadTrips = async () => {
     setLoading(true);
@@ -55,6 +83,36 @@ const ItineraryList: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // 应用筛选逻辑
+  const applyFilters = () => {
+    let filtered = [...trips];
+
+    // 按状态筛选
+    if (statusFilter && statusFilter !== 'all') {
+      filtered = filtered.filter(trip => trip.status === statusFilter);
+    }
+
+    // 按日期范围筛选
+    if (dateRange && dateRange[0] && dateRange[1]) {
+      const filterStart = dateRange[0];
+      const filterEnd = dateRange[1];
+      
+      filtered = filtered.filter(trip => {
+        const startDate = dayjs(trip.start_date);
+        return (startDate.isAfter(filterStart.subtract(1, 'day')) && 
+                startDate.isBefore(filterEnd.add(1, 'day')));
+      });
+    }
+
+    setFilteredTrips(filtered);
+  };
+
+  // 重置筛选
+  const handleResetFilters = () => {
+    setStatusFilter('all');
+    setDateRange(null);
   };
 
   // 删除行程
@@ -116,15 +174,77 @@ const ItineraryList: React.FC = () => {
         </Button>
       </div>
 
-      {trips.length === 0 ? (
+      {/* 筛选器 */}
+      <Card style={{ marginBottom: 16 }}>
+        <Row gutter={[16, 16]} align="middle">
+          <Col xs={24} sm={12} md={8} lg={6}>
+            <Space direction="vertical" size={4} style={{ width: '100%' }}>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                <FilterOutlined /> 状态筛选
+              </Text>
+              <Select
+                style={{ width: '100%' }}
+                value={statusFilter}
+                onChange={setStatusFilter}
+                options={[
+                  { label: '全部', value: 'all' },
+                  { label: '草稿', value: 'draft' },
+                  { label: '已生成', value: 'generated' },
+                  { label: '进行中', value: 'in_progress' },
+                  { label: '已完成', value: 'completed' },
+                  { label: '已归档', value: 'archived' },
+                ]}
+              />
+            </Space>
+          </Col>
+
+          <Col xs={24} sm={12} md={10} lg={8}>
+            <Space direction="vertical" size={4} style={{ width: '100%' }}>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                <CalendarOutlined /> 日期范围
+              </Text>
+              <RangePicker
+                style={{ width: '100%' }}
+                value={dateRange}
+                onChange={(dates) => setDateRange(dates as [Dayjs | null, Dayjs | null] | null)}
+                placeholder={['开始日期', '结束日期']}
+                format="YYYY-MM-DD"
+              />
+            </Space>
+          </Col>
+
+          <Col xs={24} sm={24} md={6} lg={4}>
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={handleResetFilters}
+              block
+            >
+              重置筛选
+            </Button>
+          </Col>
+
+          <Col xs={24} sm={24} md={24} lg={6}>
+            <Space size="small" style={{ fontSize: 12 }}>
+              <Text type="secondary">共 {trips.length} 个行程</Text>
+              {filteredTrips.length !== trips.length && (
+                <Text type="secondary">，筛选后 {filteredTrips.length} 个</Text>
+              )}
+            </Space>
+          </Col>
+        </Row>
+      </Card>
+
+      {filteredTrips.length === 0 ? (
         <Card>
           <Empty
-            description="您还没有创建任何行程"
+            description={trips.length === 0 ? "您还没有创建任何行程" : "没有符合条件的行程"}
             image={Empty.PRESENTED_IMAGE_SIMPLE}
           >
-            <Button type="primary" onClick={() => navigate('/itineraries/create')}>
-              立即创建
-            </Button>
+            {trips.length === 0 && (
+              <Button type="primary" onClick={() => navigate('/itineraries/create')}>
+                立即创建
+              </Button>
+            )}
           </Empty>
         </Card>
       ) : (
@@ -138,7 +258,7 @@ const ItineraryList: React.FC = () => {
             xl: 3,
             xxl: 3,
           }}
-          dataSource={trips}
+          dataSource={filteredTrips}
           renderItem={(trip) => (
             <List.Item>
               <Card
