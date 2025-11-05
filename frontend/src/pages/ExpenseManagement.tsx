@@ -21,7 +21,7 @@ import {
   UnorderedListOutlined,
   ReloadOutlined,
 } from '@ant-design/icons';
-import { useUserStore } from '../stores/useUserStore';
+import { useAuthStore } from '../stores/authStore';
 import { expenseService } from '../services/expense';
 import AddExpenseModal from '../components/AddExpenseModal';
 import ExpenseList from '../components/ExpenseList';
@@ -32,7 +32,7 @@ const { Title } = Typography;
 const { Option } = Select;
 
 const ExpenseManagement: React.FC = () => {
-  const { user } = useUserStore();
+  const { user } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [trips, setTrips] = useState<any[]>([]);
   const [selectedTripId, setSelectedTripId] = useState<string>('');
