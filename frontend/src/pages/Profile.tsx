@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Typography, Descriptions, Button, Space, Avatar, Row, Col, Tag, Spin, message } from 'antd';
+import { Card, Typography, Descriptions, Button, Space, Avatar, Row, Col, Tag, Spin, message, Divider } from 'antd';
 import { 
   UserOutlined, 
   EditOutlined, 
@@ -7,7 +7,9 @@ import {
   SettingOutlined,
   MailOutlined,
   ClockCircleOutlined,
+  ExperimentOutlined,
 } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { authService } from '../services/auth';
 import EditProfileModal from '../components/EditProfileModal';
@@ -17,6 +19,7 @@ import ChangePasswordModal from '../components/ChangePasswordModal';
 const { Title, Paragraph } = Typography;
 
 const Profile: React.FC = () => {
+  const navigate = useNavigate();
   const user = useAuthStore(state => state.user);
   const profile = useAuthStore(state => state.profile);
   const setProfile = useAuthStore(state => state.setProfile);
@@ -261,6 +264,45 @@ const Profile: React.FC = () => {
           </Card>
         </Col>
       </Row>
+
+      {/* 开发者工具区域 */}
+      <Card
+        title={
+          <Space>
+            <ExperimentOutlined />
+            <span>开发者工具</span>
+          </Space>
+        }
+        style={{ marginTop: 24 }}
+        extra={
+          <Tag color="orange">仅用于测试</Tag>
+        }
+      >
+        <Paragraph type="secondary" style={{ marginBottom: 16 }}>
+          以下功能用于测试各项AI和第三方服务集成，仅在开发和演示阶段使用。
+        </Paragraph>
+        <Space size="middle" wrap>
+          <Button 
+            icon={<ExperimentOutlined />}
+            onClick={() => navigate('/voice-test')}
+          >
+            语音识别测试
+          </Button>
+          <Button 
+            icon={<ExperimentOutlined />}
+            onClick={() => navigate('/map-test')}
+          >
+            地图功能测试
+          </Button>
+          <Button 
+            icon={<ExperimentOutlined />}
+            onClick={() => navigate('/dashscope-test')}
+            type="primary"
+          >
+            AI模型测试
+          </Button>
+        </Space>
+      </Card>
 
       {/* Modals */}
       <EditProfileModal

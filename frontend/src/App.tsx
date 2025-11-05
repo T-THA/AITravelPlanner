@@ -23,6 +23,7 @@ const ProfilePage = React.lazy(() => import('./pages/Profile'));
 const VoiceTestPage = React.lazy(() => import('./pages/VoiceTest'));
 const MapTestPage = React.lazy(() => import('./pages/MapTest'));
 const DashScopeTestPage = React.lazy(() => import('./pages/DashScopeTest'));
+const AboutPage = React.lazy(() => import('./pages/About'));
 
 // 受保护的路由组件
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -176,6 +177,18 @@ function App() {
               }
             >
               <Route index element={<DashScopeTestPage />} />
+            </Route>
+
+            {/* 关于页面 */}
+            <Route
+              path="/about"
+              element={
+                <ProtectedRoute>
+                  <MainLayout />
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<AboutPage />} />
             </Route>
             
             {/* 404 页面 */}

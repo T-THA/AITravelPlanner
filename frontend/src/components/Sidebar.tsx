@@ -6,7 +6,7 @@ import {
   PlusCircleOutlined,
   DollarOutlined,
   UserOutlined,
-  ExperimentOutlined,
+  InfoCircleOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import type { MenuProps } from 'antd';
@@ -61,30 +61,37 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed }) => {
       onClick: () => navigate('/profile'),
     },
     {
-      type: 'divider',
+      key: '/about',
+      icon: <InfoCircleOutlined />,
+      label: '关于',
+      onClick: () => navigate('/about'),
     },
-    {
-      key: 'test',
-      icon: <ExperimentOutlined />,
-      label: '测试功能',
-      children: [
-        {
-          key: '/voice-test',
-          label: '语音测试',
-          onClick: () => navigate('/voice-test'),
-        },
-        {
-          key: '/map-test',
-          label: '地图测试',
-          onClick: () => navigate('/map-test'),
-        },
-        {
-          key: '/dashscope-test',
-          label: 'AI测试',
-          onClick: () => navigate('/dashscope-test'),
-        },
-      ],
-    },
+    // 隐藏测试功能（生产环境）
+    // {
+    //   type: 'divider',
+    // },
+    // {
+    //   key: 'test',
+    //   icon: <ExperimentOutlined />,
+    //   label: '测试功能',
+    //   children: [
+    //     {
+    //       key: '/voice-test',
+    //       label: '语音测试',
+    //       onClick: () => navigate('/voice-test'),
+    //     },
+    //     {
+    //       key: '/map-test',
+    //       label: '地图测试',
+    //       onClick: () => navigate('/map-test'),
+    //     },
+    //     {
+    //       key: '/dashscope-test',
+    //       label: 'AI测试',
+    //       onClick: () => navigate('/dashscope-test'),
+    //     },
+    //   ],
+    // },
   ];
 
   // 获取当前选中的菜单项
