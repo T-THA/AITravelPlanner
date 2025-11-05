@@ -17,7 +17,6 @@ import {
   Input,
   Dropdown,
 } from 'antd';
-import type { MenuProps } from 'antd';
 import {
   EnvironmentOutlined,
   CalendarOutlined,
