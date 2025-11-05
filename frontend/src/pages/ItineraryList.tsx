@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   Card, 
   Empty, 
@@ -39,6 +39,7 @@ import {
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { tripService } from '../services/trip';
+import { debounce } from '../utils/performance';
 import dayjs, { Dayjs } from 'dayjs';
 
 const { Text } = Typography;
@@ -71,6 +72,22 @@ const ItineraryList: React.FC = () => {
   const [filteredTrips, setFilteredTrips] = useState<Trip[]>([]);
   const [shareModalVisible, setShareModalVisible] = useState(false);
   const [shareUrl, setShareUrl] = useState('');
+  const [inputSearchText, setInputSearchText] = useState<string>(''); // 输入框的实时值
+
+  // 防抖搜索函数
+  const debouncedSearch = useMemo(
+    () => debounce((value: string) => {
+      setSearchText(value);
+    }, 300),
+    []
+  );
+
+  // 处理搜索输入变化
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setInputSearchText(value);
+    debouncedSearch(value);
+  };
 
   // 加载行程列表
   useEffect(() => {
@@ -159,6 +176,7 @@ const ItineraryList: React.FC = () => {
     setStatusFilter('all');
     setDateRange(null);
     setSearchText('');
+    setInputSearchText(''); // 也重置输入框
     setSortBy('created_desc');
   };
 
@@ -316,9 +334,13 @@ const ItineraryList: React.FC = () => {
               </Text>
               <Input.Search
                 placeholder="搜索标题或目的地"
-                value={searchText}
-                onChange={(e) => setSearchText(e.target.value)}
+                value={inputSearchText}
+                onChange={handleSearchChange}
                 allowClear
+                onClear={() => {
+                  setInputSearchText('');
+                  setSearchText('');
+                }}
                 style={{ width: '100%' }}
               />
             </Space>

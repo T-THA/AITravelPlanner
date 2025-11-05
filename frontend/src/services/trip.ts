@@ -280,26 +280,4 @@ export const tripService = {
       return { data: null, error: error as Error };
     }
   },
-
-  /**
-   * 更新行程状态
-   */
-  async updateTripStatus(tripId: string, status: string) {
-    try {
-      const { data, error } = await supabase
-        .from('trips')
-        .update({ status, updated_at: new Date().toISOString() })
-        .eq('id', tripId)
-        .select()
-        .single();
-
-      if (error) {
-        return { data: null, error };
-      }
-
-      return { data, error: null };
-    } catch (error) {
-      return { data: null, error: error as Error };
-    }
-  },
 };

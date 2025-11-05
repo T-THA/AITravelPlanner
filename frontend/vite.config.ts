@@ -25,4 +25,31 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    // 代码分割策略
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // 将React相关库打包到一起
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          // Ant Design单独打包
+          'antd-vendor': ['antd', '@ant-design/icons'],
+          // 地图相关单独打包
+          'map-vendor': ['@amap/amap-jsapi-loader'],
+          // 图表库单独打包  
+          'chart-vendor': ['echarts'],
+        },
+      },
+    },
+    // 压缩选项（使用esbuild，更快）
+    minify: 'esbuild',
+    // chunk大小警告限制
+    chunkSizeWarningLimit: 1000,
+    // 启用CSS代码分割
+    cssCodeSplit: true,
+  },
+  // 优化依赖预构建
+  optimizeDeps: {
+    include: ['react', 'react-dom', 'react-router-dom', 'antd', '@ant-design/icons'],
+  },
 })
