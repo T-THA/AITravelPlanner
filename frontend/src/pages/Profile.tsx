@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Typography, Descriptions, Button, Space, Avatar, Row, Col, Tag, Spin, message, Divider } from 'antd';
+import { Card, Typography, Descriptions, Button, Space, Avatar, Row, Col, Tag, Spin, message } from 'antd';
 import { 
   UserOutlined, 
   EditOutlined, 
