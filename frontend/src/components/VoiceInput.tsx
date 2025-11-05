@@ -8,16 +8,33 @@ import type { VoiceParsedData } from '../types';
 const { Text, Paragraph } = Typography;
 
 interface VoiceInputProps {
-  onParsed: (data: VoiceParsedData) => void;
+  visible?: boolean;  // 外部控制可见性
+  onResult?: (text: string) => void;  // 识别结果回调
+  onCancel?: () => void;  // 取消回调
+  loading?: boolean;  // 外部loading状态
+  placeholder?: string;  // 提示文本
+  // 兼容旧接口
+  onParsed?: (data: VoiceParsedData) => void;
 }
 
-const VoiceInput: React.FC<VoiceInputProps> = ({ onParsed }) => {
+const VoiceInput: React.FC<VoiceInputProps> = ({
+  visible: externalVisible,
+  onResult,
+  onCancel,
+  loading: externalLoading,
+  placeholder,
+  onParsed,
+}) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isParsing, setIsParsing] = useState(false);
   const [recognizedText, setRecognizedText] = useState('');
   const [recordingTime, setRecordingTime] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // 兼容外部控制和内部控制两种模式
+  const visible = externalVisible !== undefined ? externalVisible : isModalOpen;
+  const loading = externalLoading !== undefined ? externalLoading : isParsing;
 
   // 打开录音模态框
   const handleOpenModal = () => {
@@ -30,6 +47,9 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onParsed }) => {
   const handleCloseModal = () => {
     if (isRecording) {
       stopRecording();
+    }
+    if (onCancel) {
+      onCancel();
     }
     setIsModalOpen(false);
     setRecognizedText('');
@@ -118,25 +138,35 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onParsed }) => {
     }
 
     try {
-      setIsParsing(true);
-
-      // 调用 LLM 解析语音文本
-      const { data, error } = await llmService.parseVoiceText(recognizedText);
-
-      if (error || !data) {
-        message.error('解析失败: ' + (error?.message || '未知错误'));
-        setIsParsing(false);
+      // 如果有onResult回调，直接返回识别文本
+      if (onResult) {
+        onResult(recognizedText);
+        handleCloseModal();
         return;
       }
 
-      message.success('解析成功!');
-      onParsed(data);
-      
-      // 关闭模态框
-      setTimeout(() => {
-        setIsParsing(false);
-        handleCloseModal();
-      }, 500);
+      // 否则使用LLM解析（兼容旧接口）
+      if (onParsed) {
+        setIsParsing(true);
+
+        // 调用 LLM 解析语音文本
+        const { data, error } = await llmService.parseVoiceText(recognizedText);
+
+        if (error || !data) {
+          message.error('解析失败: ' + (error?.message || '未知错误'));
+          setIsParsing(false);
+          return;
+        }
+
+        message.success('解析成功!');
+        onParsed(data);
+        
+        // 关闭模态框
+        setTimeout(() => {
+          setIsParsing(false);
+          handleCloseModal();
+        }, 500);
+      }
 
     } catch (error) {
       console.error('Parse error:', error);
@@ -154,18 +184,21 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onParsed }) => {
 
   return (
     <>
-      <Button
-        icon={<AudioOutlined />}
-        onClick={handleOpenModal}
-        block
-        size="large"
-      >
-        点击录音
-      </Button>
+      {/* 仅当非外部控制时显示按钮 */}
+      {externalVisible === undefined && (
+        <Button
+          icon={<AudioOutlined />}
+          onClick={handleOpenModal}
+          block
+          size="large"
+        >
+          点击录音
+        </Button>
+      )}
 
       <Modal
         title="语音输入"
-        open={isModalOpen}
+        open={visible}
         onCancel={handleCloseModal}
         footer={[
           <Button key="cancel" onClick={handleCloseModal}>
@@ -175,8 +208,8 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onParsed }) => {
             key="confirm"
             type="primary"
             onClick={handleConfirm}
-            disabled={!recognizedText.trim() || isParsing}
-            loading={isParsing}
+            disabled={!recognizedText.trim() || loading}
+            loading={loading}
           >
             确认并填充
           </Button>,
@@ -184,6 +217,13 @@ const VoiceInput: React.FC<VoiceInputProps> = ({ onParsed }) => {
         width={600}
       >
         <div style={{ padding: '20px 0' }}>
+          {/* 提示文本 */}
+          {placeholder && !isRecording && !recognizedText && (
+            <div style={{ marginBottom: 16 }}>
+              <Text type="secondary">{placeholder}</Text>
+            </div>
+          )}
+
           {/* 录音状态 */}
           <div style={{ textAlign: 'center', marginBottom: 24 }}>
             {!isRecording && !recognizedText && (

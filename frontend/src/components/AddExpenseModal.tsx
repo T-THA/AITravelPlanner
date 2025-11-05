@@ -12,7 +12,10 @@ import {
   Select,
   DatePicker,
   message,
+  Space,
+  Button,
 } from 'antd';
+import { AudioOutlined } from '@ant-design/icons';
 import dayjs, { Dayjs } from 'dayjs';
 import type {
   Expense,
@@ -22,6 +25,8 @@ import type {
   PaymentMethod,
 } from '../types';
 import { expenseService } from '../services/expense';
+import { dashScopeService } from '../services/dashscope';
+import VoiceInput from './VoiceInput';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -63,6 +68,8 @@ const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
 }) => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
+  const [voiceInputVisible, setVoiceInputVisible] = useState(false);
+  const [parsing, setParsing] = useState(false);
 
   const isEditMode = !!expense;
 
@@ -126,15 +133,35 @@ const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
   };
 
   // 处理语音输入结果
-  const handleVoiceResult = (text: string) => {
+  const handleVoiceResult = async (text: string) => {
     console.log('语音输入结果:', text);
-    // TODO: 使用LLM解析语音内容为结构化数据
-    // 暂时将文本填入描述字段
-    form.setFieldsValue({
-      description: text,
-    });
-    setVoiceInputVisible(false);
-    message.success('语音已转换，请补充其他信息');
+    setParsing(true);
+    
+    try {
+      // 使用LLM解析语音内容为结构化数据
+      const parsed = await dashScopeService.parseExpense(text);
+      
+      // 自动填充表单
+      form.setFieldsValue({
+        category: parsed.category,
+        amount: parsed.amount,
+        description: parsed.description,
+        expense_date: dayjs(parsed.expense_date),
+        payment_method: parsed.payment_method,
+      });
+      
+      setVoiceInputVisible(false);
+      message.success('语音已识别并自动填充，请确认信息');
+    } catch (error: any) {
+      console.error('解析失败:', error);
+      // 解析失败时，将原始文本填入描述
+      form.setFieldsValue({
+        description: text,
+      });
+      message.warning(error.message || '语音解析失败，请手动填写');
+    } finally {
+      setParsing(false);
+    }
   };
 
   return (
@@ -202,12 +229,25 @@ const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
           </Form.Item>
 
           <Form.Item
-            label="描述"
+            label={
+              <Space>
+                <span>描述</span>
+                <Button
+                  type="link"
+                  size="small"
+                  icon={<AudioOutlined />}
+                  onClick={() => setVoiceInputVisible(true)}
+                  style={{ padding: 0 }}
+                >
+                  语音输入
+                </Button>
+              </Space>
+            }
             name="description"
           >
             <Input
               size="large"
-              placeholder="例如：打车去机场"
+              placeholder="例如：打车去机场（或点击语音输入）"
               maxLength={200}
             />
           </Form.Item>
@@ -242,6 +282,15 @@ const AddExpenseModal: React.FC<AddExpenseModalProps> = ({
           </Form.Item>
         </Form>
       </Modal>
+
+      {/* 语音输入弹窗 */}
+      <VoiceInput
+        visible={voiceInputVisible}
+        onResult={handleVoiceResult}
+        onCancel={() => setVoiceInputVisible(false)}
+        loading={parsing}
+        placeholder="请说出您的费用信息，例如：今天打车去机场花了50元，用支付宝支付的"
+      />
     </>
   );
 };

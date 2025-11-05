@@ -383,6 +383,84 @@ ${difference >= 0 ?
   }
 
   /**
+   * 解析语音费用记录
+   * 将语音识别的文本转换为结构化的费用数据
+   */
+  async parseExpense(text: string): Promise<any> {
+    const systemPrompt = `你是一个专业的费用记录解析助手。
+你的任务是将用户的语音描述转换为结构化的费用数据。
+
+费用类别包括：
+- transportation（交通）：打车、公交、地铁、火车、飞机等
+- accommodation（住宿）：酒店、民宿、旅馆等
+- food（餐饮）：早餐、午餐、晚餐、小吃、饮料等
+- ticket（门票）：景点门票、表演票等
+- shopping（购物）：商场购物、纪念品等
+- entertainment（娱乐）：KTV、电影、游乐场等
+- other（其他）：无法归类的费用
+
+支付方式包括：
+- cash（现金）
+- credit_card（信用卡）
+- debit_card（借记卡）
+- mobile_payment（移动支付）：支付宝、微信支付等
+- other（其他）
+
+你需要从用户的描述中提取以下信息：
+1. amount（金额）：数字，单位元
+2. category（类别）：从上述类别中选择最合适的
+3. description（描述）：简短描述，保留关键信息
+4. expense_date（日期）：YYYY-MM-DD格式，如果用户说"今天"则使用今天日期
+5. payment_method（支付方式）：从上述方式中选择，如果没提到则留空
+
+请以JSON格式返回结果，只返回JSON，不要其他内容：
+{
+  "amount": 数字,
+  "category": "类别",
+  "description": "描述",
+  "expense_date": "日期",
+  "payment_method": "支付方式（可选）"
+}`;
+
+    const userPrompt = `请解析以下费用记录：
+"${text}"
+
+今天的日期是：${new Date().toISOString().slice(0, 10)}`;
+
+    try {
+      const response = await this.chat(userPrompt, systemPrompt);
+      
+      // 提取JSON
+      let jsonStr = response.trim();
+      const jsonMatch = jsonStr.match(/```json\s*([\s\S]*?)\s*```/) || 
+                       jsonStr.match(/```\s*([\s\S]*?)\s*```/);
+      
+      if (jsonMatch) {
+        jsonStr = jsonMatch[1].trim();
+      }
+      
+      // 解析JSON
+      const parsed = JSON.parse(jsonStr);
+      
+      // 验证必填字段
+      if (!parsed.amount || !parsed.category) {
+        throw new Error('解析结果缺少必填字段');
+      }
+      
+      return {
+        amount: Number(parsed.amount),
+        category: parsed.category,
+        description: parsed.description || '',
+        expense_date: parsed.expense_date || new Date().toISOString().slice(0, 10),
+        payment_method: parsed.payment_method || undefined,
+      };
+    } catch (error: any) {
+      console.error('费用解析失败:', error);
+      throw new Error('无法理解您的费用描述，请重新描述或手动输入');
+    }
+  }
+
+  /**
    * 测试连接
    */
   async testConnection(): Promise<{ success: boolean; message: string; model?: string }> {
