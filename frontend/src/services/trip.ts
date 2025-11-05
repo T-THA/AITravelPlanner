@@ -219,4 +219,87 @@ export const tripService = {
       return { data: null, error: error as Error };
     }
   },
+
+  /**
+   * 复制行程
+   */
+  async copyTrip(tripId: string) {
+    try {
+      // 获取当前用户
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError || !user) {
+        return { data: null, error: new Error('用户未登录') };
+      }
+
+      // 获取原行程
+      const { data: originalTrip, error: getTripError } = await supabase
+        .from('trips')
+        .select('*')
+        .eq('id', tripId)
+        .single();
+
+      if (getTripError || !originalTrip) {
+        return { data: null, error: getTripError || new Error('行程不存在') };
+      }
+
+      // 创建新行程（复制数据）
+      const { id, created_at, updated_at, ...tripData } = originalTrip;
+      const newTripData = {
+        ...tripData,
+        user_id: user.id,
+        title: `${originalTrip.title} (副本)`,
+        status: 'draft',
+      };
+
+      const { data: newTrip, error: createError } = await supabase
+        .from('trips')
+        .insert([newTripData])
+        .select()
+        .single();
+
+      if (createError) {
+        return { data: null, error: createError };
+      }
+
+      // 复制行程项
+      if (originalTrip.itinerary) {
+        const { error: updateError } = await supabase
+          .from('trips')
+          .update({ itinerary: originalTrip.itinerary })
+          .eq('id', newTrip.id);
+
+        if (updateError) {
+          console.error('Copy itinerary items error:', updateError);
+        }
+      }
+
+      return { data: newTrip, error: null };
+    } catch (error) {
+      console.error('Copy trip exception:', error);
+      return { data: null, error: error as Error };
+    }
+  },
+
+  /**
+   * 更新行程状态
+   */
+  async updateTripStatus(tripId: string, status: string) {
+    try {
+      const { data, error } = await supabase
+        .from('trips')
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq('id', tripId)
+        .select()
+        .single();
+
+      if (error) {
+        return { data: null, error };
+      }
+
+      return { data, error: null };
+    } catch (error) {
+      return { data: null, error: error as Error };
+    }
+  },
 };

@@ -14,6 +14,11 @@ import {
   DatePicker,
   Row,
   Col,
+  Input,
+  Dropdown,
+  MenuProps,
+  Modal,
+  Skeleton,
 } from 'antd';
 import {
   PlusOutlined,
@@ -25,6 +30,12 @@ import {
   DeleteOutlined,
   FilterOutlined,
   ReloadOutlined,
+  SearchOutlined,
+  SortAscendingOutlined,
+  CopyOutlined,
+  ShareAltOutlined,
+  EditOutlined,
+  InboxOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { tripService } from '../services/trip';
@@ -43,6 +54,7 @@ interface Trip {
   travelers_count: number;
   status: string;
   created_at: string;
+  cover_image?: string;
   itinerary?: any;
 }
 
@@ -54,7 +66,11 @@ const ItineraryList: React.FC = () => {
   // 筛选状态
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
+  const [searchText, setSearchText] = useState<string>('');
+  const [sortBy, setSortBy] = useState<string>('created_desc');
   const [filteredTrips, setFilteredTrips] = useState<Trip[]>([]);
+  const [shareModalVisible, setShareModalVisible] = useState(false);
+  const [shareUrl, setShareUrl] = useState('');
 
   // 加载行程列表
   useEffect(() => {
@@ -64,7 +80,7 @@ const ItineraryList: React.FC = () => {
   // 应用筛选
   useEffect(() => {
     applyFilters();
-  }, [trips, statusFilter, dateRange]);
+  }, [trips, statusFilter, dateRange, searchText, sortBy]);
 
   const loadTrips = async () => {
     setLoading(true);
@@ -106,6 +122,35 @@ const ItineraryList: React.FC = () => {
       });
     }
 
+    // 按搜索文本筛选
+    if (searchText.trim()) {
+      const searchLower = searchText.toLowerCase().trim();
+      filtered = filtered.filter(trip => 
+        trip.title.toLowerCase().includes(searchLower) ||
+        trip.destination.toLowerCase().includes(searchLower)
+      );
+    }
+
+    // 排序
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case 'created_desc':
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        case 'created_asc':
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        case 'start_date_desc':
+          return new Date(b.start_date).getTime() - new Date(a.start_date).getTime();
+        case 'start_date_asc':
+          return new Date(a.start_date).getTime() - new Date(b.start_date).getTime();
+        case 'budget_desc':
+          return b.budget - a.budget;
+        case 'budget_asc':
+          return a.budget - b.budget;
+        default:
+          return 0;
+      }
+    });
+
     setFilteredTrips(filtered);
   };
 
@@ -113,6 +158,8 @@ const ItineraryList: React.FC = () => {
   const handleResetFilters = () => {
     setStatusFilter('all');
     setDateRange(null);
+    setSearchText('');
+    setSortBy('created_desc');
   };
 
   // 删除行程
@@ -130,6 +177,61 @@ const ItineraryList: React.FC = () => {
     } catch (error) {
       console.error('Delete trip error:', error);
       message.error('删除失败');
+    }
+  };
+
+  // 复制行程
+  const handleCopy = async (tripId: string) => {
+    try {
+      const { data, error } = await tripService.copyTrip(tripId);
+      
+      if (error || !data) {
+        message.error('复制失败: ' + (error?.message || '未知错误'));
+        return;
+      }
+
+      message.success('复制成功');
+      loadTrips(); // 重新加载列表
+      // 可选：导航到新行程
+      // navigate(`/itineraries/${data.id}`);
+    } catch (error) {
+      console.error('Copy trip error:', error);
+      message.error('复制失败');
+    }
+  };
+
+  // 分享行程
+  const handleShare = (tripId: string) => {
+    const url = `${window.location.origin}/itineraries/${tripId}`;
+    setShareUrl(url);
+    setShareModalVisible(true);
+  };
+
+  // 复制分享链接
+  const handleCopyShareUrl = () => {
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      message.success('链接已复制到剪贴板');
+      setShareModalVisible(false);
+    }).catch(() => {
+      message.error('复制失败，请手动复制');
+    });
+  };
+
+  // 归档行程
+  const handleArchive = async (tripId: string) => {
+    try {
+      const { error } = await tripService.updateTripStatus(tripId, 'archived');
+      
+      if (error) {
+        message.error('归档失败: ' + error.message);
+        return;
+      }
+
+      message.success('已归档');
+      loadTrips();
+    } catch (error) {
+      console.error('Archive trip error:', error);
+      message.error('归档失败');
     }
   };
 
@@ -159,8 +261,37 @@ const ItineraryList: React.FC = () => {
 
   if (loading) {
     return (
-      <div style={{ textAlign: 'center', padding: '100px 0' }}>
-        <Spin size="large" tip="加载中..." />
+      <div>
+        <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h2 style={{ margin: 0 }}>我的行程</h2>
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/itineraries/create')}>
+            创建新行程
+          </Button>
+        </div>
+        
+        <Card style={{ marginBottom: 16 }}>
+          <Skeleton active paragraph={{ rows: 2 }} />
+        </Card>
+
+        <List
+          grid={{
+            gutter: 16,
+            xs: 1,
+            sm: 1,
+            md: 2,
+            lg: 2,
+            xl: 3,
+            xxl: 3,
+          }}
+          dataSource={[1, 2, 3, 4, 5, 6]}
+          renderItem={() => (
+            <List.Item>
+              <Card>
+                <Skeleton active paragraph={{ rows: 4 }} />
+              </Card>
+            </List.Item>
+          )}
+        />
       </div>
     );
   }
@@ -177,10 +308,27 @@ const ItineraryList: React.FC = () => {
       {/* 筛选器 */}
       <Card style={{ marginBottom: 16 }}>
         <Row gutter={[16, 16]} align="middle">
-          <Col xs={24} sm={12} md={8} lg={6}>
+          {/* 搜索框 */}
+          <Col xs={24} sm={24} md={12} lg={8}>
             <Space direction="vertical" size={4} style={{ width: '100%' }}>
               <Text type="secondary" style={{ fontSize: 12 }}>
-                <FilterOutlined /> 状态筛选
+                <SearchOutlined /> 搜索行程
+              </Text>
+              <Input.Search
+                placeholder="搜索标题或目的地"
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                allowClear
+                style={{ width: '100%' }}
+              />
+            </Space>
+          </Col>
+
+          {/* 状态筛选 */}
+          <Col xs={24} sm={12} md={6} lg={4}>
+            <Space direction="vertical" size={4} style={{ width: '100%' }}>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                <FilterOutlined /> 状态
               </Text>
               <Select
                 style={{ width: '100%' }}
@@ -198,7 +346,8 @@ const ItineraryList: React.FC = () => {
             </Space>
           </Col>
 
-          <Col xs={24} sm={12} md={10} lg={8}>
+          {/* 日期范围 */}
+          <Col xs={24} sm={12} md={6} lg={6}>
             <Space direction="vertical" size={4} style={{ width: '100%' }}>
               <Text type="secondary" style={{ fontSize: 12 }}>
                 <CalendarOutlined /> 日期范围
@@ -213,25 +362,54 @@ const ItineraryList: React.FC = () => {
             </Space>
           </Col>
 
-          <Col xs={24} sm={24} md={6} lg={4}>
+          {/* 排序 */}
+          <Col xs={24} sm={12} md={6} lg={4}>
+            <Space direction="vertical" size={4} style={{ width: '100%' }}>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                <SortAscendingOutlined /> 排序
+              </Text>
+              <Select
+                style={{ width: '100%' }}
+                value={sortBy}
+                onChange={setSortBy}
+                options={[
+                  { label: '最新创建', value: 'created_desc' },
+                  { label: '最早创建', value: 'created_asc' },
+                  { label: '出发日期↓', value: 'start_date_desc' },
+                  { label: '出发日期↑', value: 'start_date_asc' },
+                  { label: '预算从高到低', value: 'budget_desc' },
+                  { label: '预算从低到高', value: 'budget_asc' },
+                ]}
+              />
+            </Space>
+          </Col>
+
+          {/* 重置按钮 */}
+          <Col xs={24} sm={12} md={6} lg={2}>
             <Button
               icon={<ReloadOutlined />}
               onClick={handleResetFilters}
               block
+              style={{ marginTop: 20 }}
             >
-              重置筛选
+              重置
             </Button>
           </Col>
-
-          <Col xs={24} sm={24} md={24} lg={6}>
-            <Space size="small" style={{ fontSize: 12 }}>
-              <Text type="secondary">共 {trips.length} 个行程</Text>
-              {filteredTrips.length !== trips.length && (
-                <Text type="secondary">，筛选后 {filteredTrips.length} 个</Text>
-              )}
-            </Space>
-          </Col>
         </Row>
+
+        {/* 统计信息 */}
+        <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #f0f0f0' }}>
+          <Space size="large">
+            <Text type="secondary">
+              共 <Text strong>{trips.length}</Text> 个行程
+            </Text>
+            {filteredTrips.length !== trips.length && (
+              <Text type="secondary">
+                筛选后 <Text strong style={{ color: '#1890ff' }}>{filteredTrips.length}</Text> 个
+              </Text>
+            )}
+          </Space>
+        </div>
       </Card>
 
       {filteredTrips.length === 0 ? (
@@ -259,33 +437,80 @@ const ItineraryList: React.FC = () => {
             xxl: 3,
           }}
           dataSource={filteredTrips}
-          renderItem={(trip) => (
-            <List.Item>
-              <Card
-                hoverable
-                actions={[
-                  <Button
-                    type="link"
-                    icon={<EyeOutlined />}
-                    onClick={() => handleView(trip.id)}
-                    key="view"
-                  >
-                    查看详情
-                  </Button>,
-                  <Popconfirm
-                    title="确定要删除这个行程吗？"
-                    description="删除后无法恢复"
-                    onConfirm={() => handleDelete(trip.id)}
-                    okText="确定"
-                    cancelText="取消"
-                    key="delete"
-                  >
-                    <Button type="link" danger icon={<DeleteOutlined />}>
-                      删除
-                    </Button>
-                  </Popconfirm>,
-                ]}
-              >
+          renderItem={(trip) => {
+            // 更多操作菜单
+            const moreMenuItems: MenuProps['items'] = [
+              {
+                key: 'copy',
+                icon: <CopyOutlined />,
+                label: '复制行程',
+                onClick: () => handleCopy(trip.id),
+              },
+              {
+                key: 'share',
+                icon: <ShareAltOutlined />,
+                label: '分享行程',
+                onClick: () => handleShare(trip.id),
+              },
+              {
+                key: 'edit',
+                icon: <EditOutlined />,
+                label: '编辑信息',
+                onClick: () => navigate(`/itineraries/${trip.id}`),
+              },
+              {
+                type: 'divider',
+              },
+              {
+                key: 'archive',
+                icon: <InboxOutlined />,
+                label: trip.status === 'archived' ? '取消归档' : '归档',
+                onClick: () => handleArchive(trip.id),
+                disabled: trip.status === 'draft',
+              },
+            ];
+
+            return (
+              <List.Item>
+                <Card
+                  hoverable
+                  cover={
+                    trip.cover_image && (
+                      <div style={{ 
+                        height: 180, 
+                        overflow: 'hidden',
+                        background: `url(${trip.cover_image}) center/cover`
+                      }} />
+                    )
+                  }
+                  actions={[
+                    <Button
+                      type="link"
+                      icon={<EyeOutlined />}
+                      onClick={() => handleView(trip.id)}
+                      key="view"
+                    >
+                      查看
+                    </Button>,
+                    <Dropdown menu={{ items: moreMenuItems }} key="more" placement="bottomRight">
+                      <Button type="link">
+                        更多
+                      </Button>
+                    </Dropdown>,
+                    <Popconfirm
+                      title="确定要删除这个行程吗？"
+                      description="删除后无法恢复"
+                      onConfirm={() => handleDelete(trip.id)}
+                      okText="确定"
+                      cancelText="取消"
+                      key="delete"
+                    >
+                      <Button type="link" danger icon={<DeleteOutlined />}>
+                        删除
+                      </Button>
+                    </Popconfirm>,
+                  ]}
+                >
                 <Space direction="vertical" size="middle" style={{ width: '100%' }}>
                   {/* 标题和状态 */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -331,9 +556,38 @@ const ItineraryList: React.FC = () => {
                 </Space>
               </Card>
             </List.Item>
-          )}
+            );
+          }}
         />
       )}
+
+      {/* 分享Modal */}
+      <Modal
+        title="分享行程"
+        open={shareModalVisible}
+        onCancel={() => setShareModalVisible(false)}
+        footer={[
+          <Button key="cancel" onClick={() => setShareModalVisible(false)}>
+            取消
+          </Button>,
+          <Button key="copy" type="primary" onClick={handleCopyShareUrl}>
+            复制链接
+          </Button>,
+        ]}
+      >
+        <Space direction="vertical" style={{ width: '100%' }}>
+          <Text>分享此链接，让其他人查看您的行程：</Text>
+          <Input.TextArea
+            value={shareUrl}
+            readOnly
+            autoSize={{ minRows: 2, maxRows: 4 }}
+            style={{ marginTop: 8 }}
+          />
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            提示：任何拥有此链接的人都可以查看您的行程
+          </Text>
+        </Space>
+      </Modal>
     </div>
   );
 };
