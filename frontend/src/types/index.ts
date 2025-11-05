@@ -144,17 +144,112 @@ export interface EmergencyContacts {
   tourist_hotline: string;
 }
 
-// 费用记录类型
+// ==================== 费用管理相关类型 ====================
+
+// 费用类别枚举
+export type ExpenseCategory = 
+  | 'transportation'   // 交通
+  | 'accommodation'    // 住宿
+  | 'food'            // 餐饮
+  | 'ticket'          // 门票
+  | 'shopping'        // 购物
+  | 'entertainment'   // 娱乐
+  | 'other';          // 其他
+
+// 支付方式
+export type PaymentMethod = 
+  | 'cash'            // 现金
+  | 'credit_card'     // 信用卡
+  | 'debit_card'      // 借记卡
+  | 'mobile_payment'  // 移动支付
+  | 'other';          // 其他
+
+// 费用记录接口（更新为与数据库一致）
 export interface Expense {
   id: string;
-  tripId: string;
-  userId: string;
+  trip_id: string;                   // 所属行程ID
+  category: ExpenseCategory;         // 费用类别
+  amount: number;                    // 金额
+  description?: string;              // 描述
+  expense_date: string;              // 消费日期 YYYY-MM-DD
+  payment_method?: PaymentMethod;    // 支付方式
+  receipt_url?: string;              // 票据照片URL
+  notes?: string;                    // 备注
+  created_at: string;                // 创建时间
+}
+
+// 添加费用请求
+export interface AddExpenseRequest {
+  trip_id: string;
+  category: ExpenseCategory;
   amount: number;
-  category: string;
-  description: string;
-  date: string;
-  location?: string;
-  createdAt: string;
+  description?: string;
+  expense_date: string;
+  payment_method?: PaymentMethod;
+  receipt_url?: string;
+  notes?: string;
+}
+
+// 更新费用请求
+export interface UpdateExpenseRequest {
+  category?: ExpenseCategory;
+  amount?: number;
+  description?: string;
+  expense_date?: string;
+  payment_method?: PaymentMethod;
+  receipt_url?: string;
+  notes?: string;
+}
+
+// 费用统计 - 按类别
+export interface ExpenseStatsByCategory {
+  category: ExpenseCategory;
+  total_amount: number;
+  count: number;
+  percentage: number;  // 占总费用的百分比
+}
+
+// 费用统计 - 按日期
+export interface ExpenseStatsByDate {
+  date: string;  // YYYY-MM-DD
+  total_amount: number;
+  count: number;
+  categories: {
+    [key in ExpenseCategory]?: number;  // 每个类别的金额
+  };
+}
+
+// 费用总览
+export interface ExpenseOverview {
+  total_amount: number;                          // 总费用
+  budget: number;                                // 预算
+  remaining: number;                             // 剩余预算
+  percentage_used: number;                       // 已使用百分比
+  by_category: ExpenseStatsByCategory[];         // 按类别统计
+  by_date: ExpenseStatsByDate[];                 // 按日期统计
+  recent_expenses: Expense[];                    // 最近的费用记录
+}
+
+// 费用查询参数
+export interface ExpenseQueryParams {
+  trip_id: string;
+  start_date?: string;    // 开始日期筛选
+  end_date?: string;      // 结束日期筛选
+  category?: ExpenseCategory;  // 类别筛选
+  min_amount?: number;    // 最小金额
+  max_amount?: number;    // 最大金额
+  sort_by?: 'date' | 'amount' | 'created_at';  // 排序字段
+  sort_order?: 'asc' | 'desc';                 // 排序方向
+}
+
+// 语音费用解析结果
+export interface VoiceExpenseParsedData {
+  amount?: number;
+  category?: ExpenseCategory;
+  description?: string;
+  expense_date?: string;
+  payment_method?: PaymentMethod;
+  confidence: number;
 }
 
 // API 响应类型
