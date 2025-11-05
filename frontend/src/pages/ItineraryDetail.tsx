@@ -203,7 +203,24 @@ const ItineraryDetail: React.FC = () => {
         return;
       }
 
-      message.loading({ content: '正在生成PDF...', key: 'pdf', duration: 0 });
+      message.loading({ content: '正在生成PDF，请稍候...', key: 'pdf', duration: 0 });
+
+      // 暂时隐藏地图列（仅导出文字内容）
+      const mapCol = document.getElementById('map-column');
+      const originalMapDisplay = mapCol ? mapCol.style.display : '';
+      if (mapCol) {
+        mapCol.style.display = 'none';
+      }
+
+      // 调整左侧列为全宽
+      const contentCol = document.getElementById('content-column');
+      const originalContentWidth = contentCol ? contentCol.style.width : '';
+      if (contentCol) {
+        contentCol.style.width = '100%';
+      }
+
+      // 等待DOM更新
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       // 将DOM转换为canvas
       const canvas = await html2canvas(element, {
@@ -211,7 +228,16 @@ const ItineraryDetail: React.FC = () => {
         useCORS: true,
         logging: false,
         backgroundColor: '#ffffff',
+        windowWidth: 1200,
       });
+
+      // 恢复原始样式
+      if (mapCol) {
+        mapCol.style.display = originalMapDisplay;
+      }
+      if (contentCol) {
+        contentCol.style.width = originalContentWidth;
+      }
 
       // 创建PDF
       const imgWidth = 210; // A4宽度(mm)
@@ -235,7 +261,7 @@ const ItineraryDetail: React.FC = () => {
       }
 
       // 保存PDF
-      const fileName = `${trip.title || '行程'}_${new Date().toLocaleDateString()}.pdf`;
+      const fileName = `${trip.title || '行程'}_${new Date().toLocaleDateString().replace(/\//g, '-')}.pdf`;
       pdf.save(fileName);
 
       message.success({ content: 'PDF导出成功', key: 'pdf' });
@@ -266,8 +292,9 @@ const ItineraryDetail: React.FC = () => {
 
   return (
     <div style={{ padding: '24px', maxWidth: 1400, margin: '0 auto' }}>
-      {/* 顶部标题栏 */}
-      <Card style={{ marginBottom: 16 }} id="itinerary-content">
+      <div id="itinerary-content">
+        {/* 顶部标题栏 */}
+        <Card style={{ marginBottom: 16 }}>
         <Space direction="vertical" size="middle" style={{ width: '100%' }}>
           {/* 返回按钮 + 标题 */}
           <Space>
@@ -391,7 +418,7 @@ const ItineraryDetail: React.FC = () => {
       {/* 主内容区域: 左侧时间线 + 右侧地图 */}
       <Row gutter={24}>
         {/* 左侧: 每日行程时间线 - 紧凑布局 */}
-        <Col xs={24} lg={10}>
+        <Col id="content-column" xs={24} lg={10}>
           <Card 
             title="每日行程" 
             style={{ 
@@ -509,7 +536,7 @@ const ItineraryDetail: React.FC = () => {
         </Col>
 
         {/* 右侧: 地图 + 其他信息 */}
-        <Col xs={24} lg={14}>
+        <Col id="map-column" xs={24} lg={14}>
           {/* 行程地图 - 增大尺寸 */}
           <Card 
             title="行程地图" 
@@ -705,6 +732,8 @@ const ItineraryDetail: React.FC = () => {
           </Card>
         </Col>
       </Row>
+      </div>
+      {/* End of itinerary-content */}
 
       {/* 编辑行程Drawer */}
       <EditItineraryDrawer
