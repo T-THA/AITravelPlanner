@@ -98,16 +98,18 @@ const DashScopeTest: React.FC = () => {
 
     try {
       const result = await dashScopeService.analyzeBudget({
+        userBudget: 10000,
+        budgetBreakdown: {
+          transportation: 2000,
+          accommodation: 2500,
+          food: 3000,
+          tickets: 1500,
+          shopping: 800,
+          other: 200,
+        },
         destination: '北京',
         days: 5,
-        currentBudget: 10000,
-        expenses: [
-          { category: '交通', amount: 2000 },
-          { category: '住宿', amount: 2500 },
-          { category: '餐饮', amount: 3000 },
-          { category: '景点', amount: 1500 },
-          { category: '购物', amount: 800 },
-        ],
+        travelers: 2,
       });
       setBudgetResult(result);
       message.success('预算分析完成！');

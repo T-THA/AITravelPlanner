@@ -15,7 +15,7 @@ export default defineConfig({
           proxy.on('error', (err, _req, _res) => {
             console.log('代理错误', err);
           });
-          proxy.on('proxyReq', (proxyReq, req, _res) => {
+          proxy.on('proxyReq', (_proxyReq, req, _res) => {
             console.log('发送请求:', req.method, req.url);
           });
           proxy.on('proxyRes', (proxyRes, req, _res) => {
@@ -34,8 +34,6 @@ export default defineConfig({
           'react-vendor': ['react', 'react-dom', 'react-router-dom'],
           // Ant Design单独打包
           'antd-vendor': ['antd', '@ant-design/icons'],
-          // 地图相关单独打包
-          'map-vendor': ['@amap/amap-jsapi-loader'],
           // 图表库单独打包  
           'chart-vendor': ['echarts'],
         },
