@@ -30,7 +30,7 @@ import {
   LinkOutlined,
 } from '@ant-design/icons';
 import { tripService } from '../services/trip';
-import { dashScopeService } from '../services/dashscope';
+import { llmService } from '../services/llm';
 import ItineraryMap from '../components/ItineraryMap';
 import EditItineraryDrawer from '../components/EditItineraryDrawer';
 import BudgetAnalysis from '../components/BudgetAnalysis';
@@ -149,13 +149,20 @@ const ItineraryDetail: React.FC = () => {
     setBudgetAnalysisVisible(true);
 
     try {
-      const analysis = await dashScopeService.analyzeBudget({
+      const { data: analysis, error } = await llmService.analyzeBudget({
         userBudget: trip.budget || 0,
         budgetBreakdown: itinerary.budget_breakdown,
         destination: trip.destination,
         days: itinerary.daily_itinerary.length,
         travelers: trip.people_count || 1,
       });
+
+      if (error || !analysis) {
+        message.error('预算分析失败: ' + (error?.message || '未知错误'));
+        setBudgetAnalysisVisible(false);
+        setAnalyzingBudget(false);
+        return;
+      }
 
       setBudgetAnalysis(analysis);
       message.success('预算分析完成');
