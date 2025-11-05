@@ -64,7 +64,7 @@ export class DashScopeService {
 
   constructor(
     apiKey?: string,
-    baseURL = '/api/dashscope/api/v1', // 使用代理路径，避免CORS问题
+    baseURL = '/api/dashscope', // 使用代理路径，避免CORS问题
     defaultModel: QwenModelType = QwenModel.TURBO // 使用 turbo 模型
   ) {
     // 兼容两种环境变量名称
@@ -107,7 +107,7 @@ export class DashScopeService {
 
     try {
       const response = await this.client.post<DashScopeResponse>(
-        '/services/aigc/text-generation/generation',
+        '/api/v1/services/aigc/text-generation/generation',
         {
           model: params.model || this.defaultModel,
           input: {
