@@ -1,0 +1,37 @@
+#!/bin/bash
+
+# AI旅行规划师 - Docker运行脚本示例
+# 
+# 使用说明:
+# 1. 复制此文件为 docker-run.sh: cp docker-run.sh.example docker-run.sh
+# 2. 修改下面的环境变量为你的实际配置
+# 3. 运行: chmod +x docker-run.sh && ./docker-run.sh
+#
+# ⚠️  注意: docker-run.sh 包含敏感信息,已添加到 .gitignore,不会被提交到git
+
+docker run -d \
+  --name ai-travel-planner \
+  -p 3000:80 \
+  -e VITE_SUPABASE_URL="YOUR_SUPABASE_URL" \
+  -e VITE_SUPABASE_ANON_KEY="YOUR_SUPABASE_ANON_KEY" \
+  -e VITE_IFLYTEK_APP_ID="YOUR_IFLYTEK_APP_ID" \
+  -e VITE_IFLYTEK_API_KEY="YOUR_IFLYTEK_API_KEY" \
+  -e VITE_IFLYTEK_API_SECRET="YOUR_IFLYTEK_API_SECRET" \
+  -e VITE_AMAP_KEY="YOUR_AMAP_KEY" \
+  -e VITE_ALIYUN_API_KEY="YOUR_ALIYUN_API_KEY" \
+  -e VITE_ALIYUN_BASE_URL="https://dashscope.aliyuncs.com/compatible-mode/v1" \
+  -e VITE_ALIYUN_MODEL_NAME="qwen-turbo" \
+  ai-travel-planner:latest
+
+echo ""
+echo "✅ 容器已启动！"
+echo ""
+echo "📝 容器信息:"
+echo "  名称: ai-travel-planner"
+echo "  端口: http://localhost:3000"
+echo ""
+echo "🔍 查看状态: docker ps | grep ai-travel-planner"
+echo "📋 查看日志: docker logs ai-travel-planner"
+echo "🛑 停止容器: docker stop ai-travel-planner"
+echo "🗑️  删除容器: docker rm ai-travel-planner"
+echo ""
