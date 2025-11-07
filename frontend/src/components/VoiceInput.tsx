@@ -1,19 +1,18 @@
 import React, { useState, useRef } from 'react';
 import { Button, Modal, Typography, Space, Progress, message } from 'antd';
 import { AudioOutlined, LoadingOutlined } from '@ant-design/icons';
-import { iflytekASRService } from '../services/iflytek';
+import { iflytekFileASR } from '../services/iflytekFile';
 import { llmService } from '../services/llm';
 import type { VoiceParsedData } from '../types';
 
 const { Text, Paragraph } = Typography;
 
 interface VoiceInputProps {
-  visible?: boolean;  // 外部控制可见性
-  onResult?: (text: string) => void;  // 识别结果回调
-  onCancel?: () => void;  // 取消回调
-  loading?: boolean;  // 外部loading状态
-  placeholder?: string;  // 提示文本
-  // 兼容旧接口
+  visible?: boolean;
+  onResult?: (text: string) => void;
+  onCancel?: () => void;
+  loading?: boolean;
+  placeholder?: string;
   onParsed?: (data: VoiceParsedData) => void;
 }
 
@@ -30,6 +29,10 @@ const VoiceInput: React.FC<VoiceInputProps> = ({
   const [isParsing, setIsParsing] = useState(false);
   const [recognizedText, setRecognizedText] = useState('');
   const [recordingTime, setRecordingTime] = useState(0);
+  const [recognitionProgress, setRecognitionProgress] = useState(0);
+  
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // 兼容外部控制和内部控制两种模式
@@ -54,79 +57,119 @@ const VoiceInput: React.FC<VoiceInputProps> = ({
     setIsModalOpen(false);
     setRecognizedText('');
     setRecordingTime(0);
+    setRecognitionProgress(0); // 重置识别进度
   };
 
-  // 开始录音
+  // 开始录音 - 使用 MediaRecorder
   const startRecording = async () => {
     try {
-      setIsRecording(true);
+      // 重置状态,允许重新录音
+      setRecognitionProgress(0);
       setRecognizedText('');
       
+      // 请求麦克风权限
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      
+      setIsRecording(true);
+      audioChunksRef.current = [];
+
+      // 创建 MediaRecorder 实例
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+
+      // 收集音频数据
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      // 录音停止时处理
+      mediaRecorder.onstop = async () => {
+        // 停止所有音轨
+        stream.getTracks().forEach(track => track.stop());
+
+        // 合并音频数据
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        
+        // 转换为 File 对象
+        const audioFile = new File([audioBlob], 'recording.webm', { type: 'audio/webm' });
+        
+        // 发送到讯飞进行识别
+        await recognizeAudio(audioFile);
+      };
+
+      // 开始录音
+      mediaRecorder.start();
+
       // 开始计时
       timerRef.current = setInterval(() => {
         setRecordingTime((prev) => prev + 1);
       }, 1000);
 
-      // 开始录音和识别
-      await iflytekASRService.startRecognition(
-        (result) => {
-          // 收到识别结果 - 智能处理增量和追加
-          if (result.text) {
-            setRecognizedText((prev) => {
-              // 如果当前文本为空，直接使用新文本
-              if (!prev) return result.text;
-              
-              // 如果新文本以前一个文本开头或内容更长，说明是同一句话的增量更新，直接替换
-              if (result.text.startsWith(prev) || result.text.length > prev.length + 5) {
-                return result.text;
-              }
-              
-              // 否则是新内容（如标点符号或新句子），追加到后面
-              return prev + result.text;
-            });
-          }
-          // 如果是最终结果,自动停止录音
-          if (result.isFinal) {
-            stopRecording();
-          }
-        },
-        (error) => {
-          // 识别错误
-          console.error('Recognition error:', error);
-          message.error('识别失败: ' + error.message);
-          stopRecording();
-        },
-        (status) => {
-          console.log('WebSocket status:', status);
-        }
-      );
+      message.success('开始录音...');
 
     } catch (error) {
       console.error('Start recording error:', error);
       message.error('录音失败: ' + (error as Error).message);
       setIsRecording(false);
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
     }
   };
 
   // 停止录音
-  const stopRecording = async () => {
-    try {
-      setIsRecording(false);
-      
-      // 停止计时
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+    
+    setIsRecording(false);
+    
+    // 停止计时
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
 
-      // 停止录音
-      iflytekASRService.stopRecognition();
+    message.info('正在识别...');
+  };
+
+  // 识别音频
+  const recognizeAudio = async (audioFile: File) => {
+    try {
+      setRecognitionProgress(0);
+
+      await iflytekFileASR.recognizeFile(
+        audioFile,
+        (result) => {
+          // 收到识别结果
+          if (result.text) {
+            setRecognizedText((prev) => {
+              if (!prev) return result.text;
+              if (result.text.startsWith(prev) || result.text.length > prev.length + 5) {
+                return result.text;
+              }
+              return prev + result.text;
+            });
+          }
+          
+          if (result.isFinal) {
+            message.success('识别完成!');
+            setRecognitionProgress(100);
+          }
+        },
+        (error) => {
+          console.error('Recognition error:', error);
+          message.error('识别失败: ' + error.message);
+          setRecognitionProgress(0);
+        },
+        (progress) => {
+          setRecognitionProgress(progress);
+        }
+      );
 
     } catch (error) {
-      console.error('Stop recording error:', error);
+      console.error('Recognition error:', error);
+      message.error('识别失败');
     }
   };
 
@@ -149,7 +192,6 @@ const VoiceInput: React.FC<VoiceInputProps> = ({
       if (onParsed) {
         setIsParsing(true);
 
-        // 调用 LLM 解析语音文本
         const { data, error } = await llmService.parseVoiceText(recognizedText);
 
         if (error || !data) {
@@ -161,7 +203,6 @@ const VoiceInput: React.FC<VoiceInputProps> = ({
         message.success('解析成功!');
         onParsed(data);
         
-        // 关闭模态框
         setTimeout(() => {
           setIsParsing(false);
           handleCloseModal();
@@ -217,7 +258,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({
         width={600}
       >
         <div style={{ padding: '20px 0' }}>
-          {/* 自定义提示文本 - 在未录音时显示 */}
+          {/* 自定义提示文本 */}
           {placeholder && !isRecording && !recognizedText && (
             <div style={{ 
               marginBottom: 16, 
@@ -234,7 +275,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({
 
           {/* 录音状态 */}
           <div style={{ textAlign: 'center', marginBottom: 24 }}>
-            {!isRecording && !recognizedText && (
+            {!isRecording && !recognizedText && recognitionProgress === 0 && (
               <Space direction="vertical" size="large" style={{ width: '100%' }}>
                 <AudioOutlined style={{ fontSize: 64, color: '#1890ff' }} />
                 <Text type="secondary">点击下方按钮开始录音</Text>
@@ -248,24 +289,31 @@ const VoiceInput: React.FC<VoiceInputProps> = ({
                   {formatTime(recordingTime)}
                 </Text>
                 <Text type="secondary">正在录音中...</Text>
-                {/* 实时显示识别文字 */}
+              </Space>
+            )}
+
+            {!isRecording && recognitionProgress > 0 && recognitionProgress < 100 && (
+              <Space direction="vertical" size="large" style={{ width: '100%' }}>
+                <LoadingOutlined style={{ fontSize: 64, color: '#1890ff' }} />
+                <Text type="secondary">正在识别中...</Text>
+                <Progress percent={recognitionProgress} status="active" />
                 {recognizedText && (
                   <div style={{ 
                     background: '#f0f0f0', 
                     padding: 12, 
                     borderRadius: 8,
                     minHeight: 60,
-                    maxWidth: '520px',  // 限制最大宽度，避免碰到边界
+                    maxHeight: 200,
+                    overflow: 'auto',
                     textAlign: 'left',
                     marginTop: 16,
-                    width: '100%',
-                    boxSizing: 'border-box',  // 确保 padding 不会让宽度溢出
+                    boxSizing: 'border-box',
                   }}>
-                    <Text type="secondary" style={{ fontSize: 12 }}>实时识别:</Text>
+                    <Text type="secondary" style={{ fontSize: 12 }}>识别中:</Text>
                     <Paragraph style={{ 
                       margin: '8px 0 0 0', 
                       whiteSpace: 'pre-wrap',
-                      wordBreak: 'break-word',  // 长词自动换行
+                      wordBreak: 'break-word',
                     }}>
                       {recognizedText}
                     </Paragraph>
@@ -274,16 +322,23 @@ const VoiceInput: React.FC<VoiceInputProps> = ({
               </Space>
             )}
 
-            {!isRecording && recognizedText && (
+            {!isRecording && recognizedText && recognitionProgress === 100 && (
               <Space direction="vertical" size="large" style={{ width: '100%' }}>
                 <div style={{ 
                   background: '#f0f0f0', 
                   padding: 16, 
                   borderRadius: 8,
                   minHeight: 100,
+                  maxHeight: 300,
+                  overflow: 'auto',
                   textAlign: 'left',
+                  boxSizing: 'border-box',
                 }}>
-                  <Paragraph style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
+                  <Paragraph style={{ 
+                    margin: 0, 
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                  }}>
                     {recognizedText}
                   </Paragraph>
                 </div>
@@ -323,7 +378,7 @@ const VoiceInput: React.FC<VoiceInputProps> = ({
             </div>
           )}
 
-          {/* 使用提示 - 仅在未录音且无提示placeholder时显示默认提示 */}
+          {/* 使用提示 */}
           {!placeholder && !isRecording && !recognizedText && (
             <div style={{ marginTop: 24, padding: 12, background: '#f6f6f6', borderRadius: 8 }}>
               <Text type="secondary" style={{ fontSize: 12 }}>
